@@ -15,6 +15,12 @@
     "bin": {
         "daniels-server": "./dist/server.min.mjs"
     },
+    "exports": {
+        ".": {
+            "import": "./dist/api.min.mjs",
+            "types": "./dist/api.d.mts"
+        }
+    },
     "engines": {
         "node": ">=22.0.0"
     },
@@ -22,14 +28,15 @@
         "dist/"
     ],
     "imports": {
-        "#server/primary":   "./src/primary.mts",
-        "#server/worker":    "./src/worker.mts",
-        "#server/cache":     "./src/cache.mts",
-        "#server/serve":     "./src/serve.mts",
-        "#server/mime":      "./src/mime.mts",
-        "#server/range":     "./src/range.mts",
-        "#server/devtools":  "./src/devtools.mts",
-        "#server/types":     "./src/types.mts",
+        "#server/primary": "./src/primary.mts",
+        "#server/worker": "./src/worker.mts",
+        "#server/cache": "./src/cache.mts",
+        "#server/serve": "./src/serve.mts",
+        "#server/mime": "./src/mime.mts",
+        "#server/range": "./src/range.mts",
+        "#server/devtools": "./src/devtools.mts",
+        "#server/types": "./src/types.mts",
+        "#server/api": "./src/api.mts",
         "#server/mimetypes": "./resources/server-mimetypes.json"
     },
     "scripts": {
