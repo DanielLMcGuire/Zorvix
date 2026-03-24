@@ -1,6 +1,7 @@
 import cluster from 'cluster';
 import { runPrimary } from '#zorvix/primary';
 import { runWorker  } from '#zorvix/worker';
+import pkg from '#zorvix/pkg' with { type: 'json' };
 
 const nodeVersion = process.versions.node.split('.').map(Number);
 if (nodeVersion[0] < 22) {
@@ -13,6 +14,7 @@ const port: number | undefined = portArg ? parseInt(portArg, 10) : undefined;
 
 const logging  = process.argv.includes('-l')    || process.argv.includes('--log');
 const help     = process.argv.includes('-h')    || process.argv.includes('--help');
+const versionFlag = process.argv.includes('-v') || process.argv.includes('--version');
 const isDev    = process.argv.includes('--dev');
 const devTools =
     process.argv.includes('-dt')        ||
@@ -43,6 +45,11 @@ function printHelp(ret: number): never {
 }
 
 if (help) printHelp(0);
+
+if (versionFlag) {
+    console.log(`zorvix ${pkg.version}`);
+    process.exit(0);
+}
 
 if (!port || Number.isNaN(port)) {
     console.error('Error: port must be a number (first argument)');

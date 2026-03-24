@@ -1,6 +1,6 @@
 {
     "name": "zorvix",
-    "version": "1.1.4",
+    "version": "1.1.5",
     "description": "A static http/https file server",
     "license": "MIT",
     "author": "Daniel McGuire",
@@ -55,7 +55,8 @@
         "#zorvix/static": "./src/static.mts",
         "#zorvix/types": "./src/types.mts",
         "#zorvix/mimetypes": "./resources/server-mimetypes.json",
-        "#zorvix/worker": "./src/worker.mts"
+        "#zorvix/worker": "./src/worker.mts",
+        "#zorvix/pkg": "./package.json"
     },
     "scripts": {
         "build": "node build.mjs",
