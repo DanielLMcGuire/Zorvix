@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import esbuild from 'esbuild';
 import ts from 'typescript';
 import { existsSync, readdirSync, rmSync } from 'fs';
@@ -28,25 +29,41 @@ function loadConfig() {
 
 /** @param {ts.ParsedCommandLine} tsConfig */
 function runTypeCheck(tsConfig) {
+    const entryFiles = ['src/api.mts', 'src/types.mts'];
+
+    const compilerOptions = {
+        ...tsConfig.options,
+        noEmit: false,
+        emitDeclarationOnly: true,
+        declaration: true,
+        outDir: 'dist',
+        rootDir: 'src',
+    };
+
     if (isWatchMode) {
         console.log('Watching for type changes...');
         const createProgram = ts.createEmitAndSemanticDiagnosticsBuilderProgram;
+
         const host = ts.createWatchCompilerHost(
-            tsConfig.fileNames,
-            { ...tsConfig.options, noEmit: true },
+            entryFiles,
+            compilerOptions,
             ts.sys,
             createProgram,
             (diag) => console.error(ts.formatDiagnosticsWithColorAndContext([diag], diagHost)),
             (status) => console.log(ts.formatDiagnostic(status, diagHost))
         );
+
         ts.createWatchProgram(host);
     } else {
-        const program = ts.createProgram(tsConfig.fileNames, { ...tsConfig.options, noEmit: true });
+        const program = ts.createProgram(entryFiles, compilerOptions);
         const diagnostics = ts.getPreEmitDiagnostics(program);
+
         if (diagnostics.length) {
             console.error(ts.formatDiagnosticsWithColorAndContext(diagnostics, diagHost));
             process.exit(1);
         }
+
+        program.emit();
     }
 }
 
@@ -54,9 +71,7 @@ function cleanupDeclarations() {
     const distPath = 'dist';
     const KEEP = new Set(['api.d.mts', 'types.d.mts']);
 
-    if (!existsSync(distPath)) {
-        return;
-    }
+    if (!existsSync(distPath)) return;
 
     for (const file of readdirSync(distPath)) {
         if (file.endsWith('.d.mts') && !KEEP.has(file)) {
@@ -75,7 +90,7 @@ async function runBundling() {
     };
 
     const entryPoints = [
-        { in: 'src/zorvix.mts', out: 'dist/zorvix.min.mjs', banner: { js: '#!/usr/bin/env node' } },
+        { in: 'src/cli.mts', out: 'dist/zorvix.min.mjs', banner: { js: '#!/usr/bin/env node' } },
         { in: 'src/api.mts', out: 'dist/api.min.mjs' }
     ];
 
@@ -102,6 +117,7 @@ async function build() {
         cleanupDeclarations();
         runTypeCheck(tsConfig);
         await runBundling();
+
         if (!isWatchMode) {
             console.log('Build complete.');
         }
