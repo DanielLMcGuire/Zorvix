@@ -1,5 +1,5 @@
 import zlib                                from 'zlib';
-import { IncomingMessage, ServerResponse } from 'http';
+import { IncomingMessage, ServerResponse } from 'node:http';
 
 export function createDevToolsHandler(root: string, uuid: string, logging: boolean) {
     let msgShown = false;

@@ -1,7 +1,7 @@
 import fs                              from 'fs';
 import path                            from 'path';
 import zlib                            from 'zlib';
-import { IncomingMessage, ServerResponse } from 'http';
+import { IncomingMessage, ServerResponse } from 'node:http';
 import { CachedBuffer, CachedStream }  from '#zorvix/static-types';
 import { isCompressible }              from '#zorvix/mime';
 import { parseRange, handleRangeError } from '#zorvix/range';

@@ -73,7 +73,6 @@ function emitDeclarations() {
         libraries: {
             allowedTypesLibraries: ['node'],
         },
-        output: { exportReferencedTypes: false },
     }]);
 
     writeFileSync(dtsOutput, output, 'utf8');

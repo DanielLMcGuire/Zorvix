@@ -1,5 +1,5 @@
-import type http  from 'http';
-import type https from 'https';
+import type * as http from 'node:http';
+import type * as https from 'node:https';
 import type { RequestHandler } from '#zorvix/router';
 
 export type { NextFunction, RequestHandler } from '#zorvix/router';
@@ -55,30 +55,23 @@ export interface ServerInstance {
      * propagates the error to the top-level error handler.
      * Returns `this` for chaining.
      */
-    use(handler: RequestHandler): this;
-
-    /**
-     * Register a path-prefixed request handler.  The handler is only invoked
-     * when the request URL starts with `mountPath`.  `req.url` is **not**
-     * rewritten — the full URL is always visible to the handler.
-     * Returns `this` for chaining.
-     */
-    use(mountPath: string, handler: RequestHandler): this;
+    use(handler: RequestHandler): ServerInstance;
+    use(path: string, handler: RequestHandler): ServerInstance;
 
     /** Register a handler for GET `routePath`. */
-    get(routePath: string,     handler: RequestHandler): this;
+    get(routePath: string,     handler: RequestHandler): ServerInstance;
     /** Register a handler for POST `routePath`. */
-    post(routePath: string,    handler: RequestHandler): this;
+    post(routePath: string,    handler: RequestHandler): ServerInstance;
     /** Register a handler for PUT `routePath`. */
-    put(routePath: string,     handler: RequestHandler): this;
+    put(routePath: string,     handler: RequestHandler): ServerInstance;
     /** Register a handler for PATCH `routePath`. */
-    patch(routePath: string,   handler: RequestHandler): this;
+    patch(routePath: string,   handler: RequestHandler): ServerInstance;
     /** Register a handler for DELETE `routePath`. */
-    delete(routePath: string,  handler: RequestHandler): this;
+    delete(routePath: string,  handler: RequestHandler): ServerInstance;
     /** Register a handler for HEAD `routePath`. */
-    head(routePath: string,    handler: RequestHandler): this;
+    head(routePath: string,    handler: RequestHandler): ServerInstance;
     /** Register a handler for OPTIONS `routePath`. */
-    options(routePath: string, handler: RequestHandler): this;
+    options(routePath: string, handler: RequestHandler): ServerInstance;
 
     /**
      * Start listening.  Resolves once the server is bound and ready to accept

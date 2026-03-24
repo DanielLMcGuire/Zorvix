@@ -1,9 +1,9 @@
-import http                               from 'http';
+import http                               from 'node:http';
 import https                              from 'https';
 import crypto                             from 'crypto';
 import path                               from 'path';
 import cluster                            from 'cluster';
-import { IncomingMessage, ServerResponse } from 'http';
+import { IncomingMessage, ServerResponse } from 'node:http';
 import { createCache }                    from '#zorvix/cache';
 import { createDevToolsHandler }          from '#zorvix/devtools';
 import { createRouter, normaliseMountPath } from '#zorvix/router';
@@ -132,6 +132,18 @@ export function createServer(options: ServerOptions): ServerInstance {
         return instance;
     }
 
+    function use(handler: RequestHandler): ServerInstance;
+    function use(mountPath: string, handler: RequestHandler): ServerInstance;
+    function use(pathOrHandler: string | RequestHandler, maybeHandler?: RequestHandler): ServerInstance {
+        if (typeof pathOrHandler === 'function') {
+            router.addMiddleware(null, pathOrHandler);
+        } else {
+            if (!maybeHandler) throw new TypeError('use(path, handler): handler is required');
+            router.addMiddleware(normaliseMountPath(pathOrHandler), maybeHandler);
+        }
+        return instance;
+    }
+
     const instance: ServerInstance = {
         /** Absolute path to the static-file root directory. */
         get root()      { return root; },
@@ -163,15 +175,7 @@ export function createServer(options: ServerOptions): ServerInstance {
          * @returns The current {@link ServerInstance} for chaining.
          * @throws {TypeError} When a path is provided without a corresponding handler.
          */
-        use(pathOrHandler: string | RequestHandler, maybeHandler?: RequestHandler): ServerInstance {
-            if (typeof pathOrHandler === 'function') {
-                router.addMiddleware(null, pathOrHandler);
-            } else {
-                if (!maybeHandler) throw new TypeError('use(path, handler): handler is required');
-                router.addMiddleware(normaliseMountPath(pathOrHandler), maybeHandler);
-            }
-            return instance;
-        },
+        use,
 
         /**
          * Registers a `GET` route.

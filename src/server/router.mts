@@ -1,4 +1,4 @@
-import { IncomingMessage, ServerResponse } from 'http';
+import { IncomingMessage, ServerResponse } from 'node:http';
 
 /**
  * Optional error value passed to `next()`.  When present the chain is aborted

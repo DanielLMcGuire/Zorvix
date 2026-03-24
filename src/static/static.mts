@@ -1,5 +1,5 @@
 import path                                from 'path';
-import { IncomingMessage, ServerResponse } from 'http';
+import { IncomingMessage, ServerResponse } from 'node:http';
 import { serveBufferFile, serveStreamFile } from '#zorvix/serve';
 import { isAttachment, cacheControlFor }    from '#zorvix/mime';
 import type { CachedFile } from '#zorvix/static-types';

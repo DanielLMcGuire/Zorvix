@@ -1,4 +1,4 @@
-import { ServerResponse }          from 'http';
+import { ServerResponse }          from 'node:http';
 import type { RangeResult, ByteRange }  from '#zorvix/static-types';
 
 export function parseRange(header: string, totalSize: number): RangeResult {
