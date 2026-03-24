@@ -35,7 +35,7 @@ type HandlerEntry = MiddlewareEntry | RouteEntry;
  *   :name   — captures one path segment (no slashes)
  *   *       — captures everything (including slashes)
  */
-function compilePattern(routePath: string): { regex: RegExp; paramNames: string[] } {
+export function compilePattern(routePath: string): { regex: RegExp; paramNames: string[] } {
     const paramNames: string[] = [];
 
     let src = routePath.replace(/[.+?^${}()|[\]\\]/g, '\\$&');

@@ -17,6 +17,14 @@ export interface ServerOptions {
     /** Enable Chrome DevTools workspace integration. Default: `false`. */
     devTools?: boolean;
     /**
+     * Fork a cluster worker and supervise it.  When `true` and the current
+     * process is the cluster primary, `start()` forks one worker and restarts
+     * it on unexpected exit.  The worker re-executes the same entry-point,
+     * hits `createServer` again, and this time runs as the HTTP server.
+     * Default: `false`.
+     */
+    workers?:  boolean;
+    /**
      * PEM-encoded TLS private key — either a file-system path (string) or the
      * key material itself (Buffer).  Must be supplied together with `cert` to
      * enable HTTPS.
@@ -67,6 +75,8 @@ export interface ServerInstance {
      * Start listening.  Resolves once the server is bound and ready to accept
      * connections.  Rejects if the server is already listening, if the port is
      * already in use, or if another OS error occurs.
+     *
+     * In the cluster primary, resolves once the worker process has been forked.
      */
     start(): Promise<void>;
 
@@ -74,6 +84,9 @@ export interface ServerInstance {
      * Gracefully stop the server.  Resolves immediately when the server is not
      * currently listening, otherwise waits until all in-flight connections are
      * closed.
+     *
+     * In the cluster primary, sends SIGINT to the worker and resolves once it
+     * exits.
      */
     stop(): Promise<void>;
 
@@ -83,6 +96,9 @@ export interface ServerInstance {
     readonly port:      number;
     /** `true` between a successful `start()` and the completion of `stop()`. */
     readonly listening: boolean;
-    /** The underlying `http.Server` or `https.Server` instance. */
+    /**
+     * The underlying `http.Server` or `https.Server` instance.
+     * Throws if accessed from the cluster primary process.
+     */
     readonly server:    http.Server | https.Server;
 }
