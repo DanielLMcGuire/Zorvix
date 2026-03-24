@@ -4,6 +4,15 @@ import type { RequestHandler } from '#zorvix/router';
 
 export type { NextFunction, RequestHandler } from '#zorvix/router';
 
+declare module 'http' {
+    interface IncomingMessage {
+        /** Route parameters extracted from the matched URL pattern (e.g. `{ id: '42' }` for `/users/:id`). */
+        params: Record<string, string>;
+        /** Parsed request body, populated by body-parsing middleware. `unknown` until narrowed by the caller. */
+        body?: unknown;
+    }
+}
+
 export interface ServerOptions {
     /** Port to listen on. */
     port:      number;
