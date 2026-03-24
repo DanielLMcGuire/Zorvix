@@ -48,24 +48,50 @@ node server.js 8080 --dev --devtools -l
 
 ## API
 
-`api.mts` exports `createServer()` for embedding the server in your own code.
+`api.mts` exports `createServer()` for embedding the server in your own code. In addition to static file serving, you can register REST routes and middleware that run before the static layer.
 
 ```ts
 import { createServer } from './api.mts';
 
 const server = createServer({ port: 8080, root: './dist', logging: true });
 
-// Register middleware (runs before static file serving)
+// Global middleware — runs for every request before routes and static serving
 server.use((req, res, next) => {
     res.setHeader('X-Custom-Header', 'hello');
     next();
 });
 
-// Mount a handler at a path prefix
+// Path-prefixed middleware — only runs when the URL starts with /api
 server.use('/api', (req, res, next) => {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ ok: true }));
+    if (!req.headers['x-api-key']) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Unauthorised' }));
+        return;
+    }
+    next();
 });
+
+// REST routes
+server
+    .get('/api/users', (req, res) => {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify([{ id: 1, name: 'Alice' }]));
+    })
+    .post('/api/users', (req, res) => {
+        res.writeHead(201, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ created: true }));
+    })
+    .get('/api/users/:id', (req, res) => {
+        // Named path segments are available on req.params
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ id: req.params.id }));
+    })
+    .delete('/api/users/:id', (req, res) => {
+        res.writeHead(204);
+        res.end();
+    });
+
+// Unmatched GET / HEAD requests fall through to static file serving as normal.
 
 await server.start();
 console.log(`Listening on port ${server.port}`);
@@ -91,6 +117,13 @@ await server.stop();
 |---|---|
 | `.use(handler)` | Register global middleware |
 | `.use(path, handler)` | Register path-prefixed middleware |
+| `.get(path, handler)` | Register a GET route |
+| `.post(path, handler)` | Register a POST route |
+| `.put(path, handler)` | Register a PUT route |
+| `.patch(path, handler)` | Register a PATCH route |
+| `.delete(path, handler)` | Register a DELETE route |
+| `.head(path, handler)` | Register a HEAD route |
+| `.options(path, handler)` | Register an OPTIONS route |
 | `.start()` | Start listening, resolves when ready |
 | `.stop()` | Gracefully stop the server |
 | `.root` | Resolved absolute path being served |
@@ -98,9 +131,34 @@ await server.stop();
 | `.listening` | `true` while the server is active |
 | `.server` | The underlying `http.Server` / `https.Server` |
 
+### Route paths
+
+Route paths passed to the method helpers support two dynamic segments:
+
+| Syntax | Example | Captured as |
+|---|---|---|
+| `:name` | `/users/:id` | `req.params.id` |
+| `*` | `/static/*` | `req.params['0']` |
+
+`req.params` is always defined on every request (an empty object `{}` for middleware and static-file requests that did not match a route).
+
+### Handler execution order
+
+Handlers and routes are executed in **registration order**. Each handler must either end the response or call `next()` to pass control forward. Calling `next(err)` with a value skips the remaining chain and triggers the built-in 500 error handler.
+
+```
+global middleware → path-prefixed middleware → matching route → static file serving
+```
+
+Unmatched `GET` and `HEAD` requests always fall through to static file serving. Any other method that reaches the end of the chain without being handled returns `405 Method Not Allowed` with an `Allow` header listing the methods that do have a registered route for that path.
+
 ---
 
 ## Features
+
+**REST routing**: `createServer()` supports method-specific route registration (`.get()`, `.post()`, `.put()`, `.patch()`, `.delete()`, `.head()`, `.options()`) with named path parameters (`:id`) and wildcards (`*`).
+
+**Middleware**: `.use()` registers handlers that run before routes and static serving. Mount at a path prefix or globally.
 
 **Caching & conditional requests**: responses include `ETag` and `Last-Modified` headers. `If-None-Match` and `If-Modified-Since` are honoured with `304 Not Modified` responses.
 
@@ -125,4 +183,4 @@ await server.stop();
 - Path traversal is blocked: resolved file paths are checked to ensure they remain inside `root`.
 - URLs longer than the configured maximum return `414 URI Too Long`.
 - Requests with excessive headers return `431 Request Header Fields Too Large`.
-- Only `GET` and `HEAD` methods are accepted; all others return `405 Method Not Allowed`.
+- Requests that do not match any registered route and are not `GET` or `HEAD` return `405 Method Not Allowed` with an accurate `Allow` header.

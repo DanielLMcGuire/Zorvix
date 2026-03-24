@@ -10,6 +10,12 @@ import { serveBufferFile, serveStreamFile } from '#server/serve';
 import { isAttachment, cacheControlFor }    from '#server/mime';
 import { HEADERS_TIMEOUT_MS, REQUEST_TIMEOUT_MS, MAX_HEADERS_COUNT, MAX_URL_LENGTH } from '#server/types';
 
+declare module 'http' {
+    interface IncomingMessage {
+        params: Record<string, string>;
+    }
+}
+
 /**
  * Optional error value passed to `next()`.  When present the chain is aborted
  * and the error is re-thrown so the top-level try/catch can handle it.
@@ -49,6 +55,10 @@ export interface ServerOptions {
 }
 
 export interface ServerInstance {
+    // -----------------------------------------------------------------------
+    // Middleware
+    // -----------------------------------------------------------------------
+
     /**
      * Register a request handler that runs *before* static-file serving.
      * Handlers are called in registration order; call `next()` to continue
@@ -65,6 +75,36 @@ export interface ServerInstance {
      */
     use(mountPath: string, handler: RequestHandler): this;
 
+    // -----------------------------------------------------------------------
+    // REST route methods
+    //
+    // `routePath` supports:
+    //   - Exact segments:   '/api/users'
+    //   - Named parameters: '/api/users/:id'        → req.params.id
+    //   - Wildcards:        '/static/*'             → req.params['0']
+    //
+    // All methods return `this` for chaining.
+    // -----------------------------------------------------------------------
+
+    /** Register a handler for GET `routePath`. */
+    get(routePath: string, handler: RequestHandler): this;
+    /** Register a handler for POST `routePath`. */
+    post(routePath: string, handler: RequestHandler): this;
+    /** Register a handler for PUT `routePath`. */
+    put(routePath: string, handler: RequestHandler): this;
+    /** Register a handler for PATCH `routePath`. */
+    patch(routePath: string, handler: RequestHandler): this;
+    /** Register a handler for DELETE `routePath`. */
+    delete(routePath: string, handler: RequestHandler): this;
+    /** Register a handler for HEAD `routePath`. */
+    head(routePath: string, handler: RequestHandler): this;
+    /** Register a handler for OPTIONS `routePath`. */
+    options(routePath: string, handler: RequestHandler): this;
+
+    // -----------------------------------------------------------------------
+    // Lifecycle
+    // -----------------------------------------------------------------------
+
     /**
      * Start listening.  Resolves once the server is bound and ready to accept
      * connections.  Rejects if the server is already listening, if the port is
@@ -79,6 +119,10 @@ export interface ServerInstance {
      */
     stop(): Promise<void>;
 
+    // -----------------------------------------------------------------------
+    // Read-only properties
+    // -----------------------------------------------------------------------
+
     /** The resolved absolute path being served. */
     readonly root:      string;
     /** The port passed to `createServer`. */
@@ -87,6 +131,88 @@ export interface ServerInstance {
     readonly listening: boolean;
     /** The underlying `http.Server` or `https.Server` instance, in case you need low-level access. */
     readonly server:    http.Server | https.Server;
+}
+
+type MiddlewareEntry = {
+    kind:      'middleware';
+    mountPath: string | null;
+    handler:   RequestHandler;
+};
+
+type RouteEntry = {
+    kind:       'route';
+    method:     string;
+    regex:      RegExp;
+    paramNames: string[];
+    handler:    RequestHandler;
+};
+
+type HandlerEntry = MiddlewareEntry | RouteEntry;
+
+/**
+ * Compile an Express-style route path into a RegExp + param name list.
+ *
+ * Supported syntax:
+ *   :name   — captures one path segment (no slashes)
+ *   *       — captures everything (including slashes)
+ */
+function compilePattern(routePath: string): { regex: RegExp; paramNames: string[] } {
+    const paramNames: string[] = [];
+
+    let src = routePath.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+
+    src = src.replace(/:([a-zA-Z_][a-zA-Z0-9_]*)/g, (_full, name: string) => {
+        paramNames.push(name);
+        return '([^/]+)';
+    });
+
+    let wildcardIdx = 0;
+    src = src.replace(/\*/g, () => {
+        paramNames.push(String(wildcardIdx++));
+        return '(.*)';
+    });
+
+    return { regex: new RegExp(`^${src}$`), paramNames };
+}
+
+/**
+ * Test a request URL against a compiled route pattern.
+ * Returns extracted params on match, `null` on miss.
+ */
+function matchRoute(
+    reqUrl:     string | undefined,
+    regex:      RegExp,
+    paramNames: string[],
+): Record<string, string> | null {
+    const reqPath = (reqUrl ?? '/').split('?')[0];
+    const m = regex.exec(reqPath);
+    if (!m) return null;
+
+    const params: Record<string, string> = {};
+    for (let i = 0; i < paramNames.length; i++) {
+        try {
+            params[paramNames[i]] = decodeURIComponent(m[i + 1]);
+        } catch {
+            params[paramNames[i]] = m[i + 1];
+        }
+    }
+    return params;
+}
+
+/**
+ * Collect every HTTP method that has a registered route whose pattern matches
+ * `reqUrl`.  Used to populate the `Allow` header on 405 responses.
+ */
+function allowedMethodsFor(reqUrl: string | undefined, entries: HandlerEntry[]): string {
+    const methods = new Set<string>(['GET', 'HEAD']);
+    for (const entry of entries) {
+        if (entry.kind !== 'route') continue;
+        if (matchRoute(reqUrl, entry.regex, entry.paramNames) !== null) {
+            methods.add(entry.method);
+            if (entry.method === 'GET') methods.add('HEAD');
+        }
+    }
+    return [...methods].sort().join(', ');
 }
 
 function resolveFilePath(url: string | undefined, root: string): string | null {
@@ -122,7 +248,6 @@ export function createServer(options: ServerOptions): ServerInstance {
     const { port, logging = false, devTools = false } = options;
     const ROOT = options.root ? path.resolve(options.root) : process.cwd();
 
-    type HandlerEntry = { mountPath: string | null; handler: RequestHandler };
     const handlerEntries: HandlerEntry[] = [];
 
     const { getFile, startPruning } = createCache(ROOT, logging);
@@ -224,12 +349,34 @@ export function createServer(options: ServerOptions): ServerInstance {
     ): Promise<void> {
         while (index < handlerEntries.length) {
             const entry = handlerEntries[index];
-            if (entry.mountPath === null || urlMatchesMount(req.url, entry.mountPath)) break;
+
+            if (entry.kind === 'middleware') {
+                if (entry.mountPath === null || urlMatchesMount(req.url, entry.mountPath)) break;
+            } else {
+                if (entry.method === (req.method ?? 'GET').toUpperCase()) {
+                    const params = matchRoute(req.url, entry.regex, entry.paramNames);
+                    if (params !== null) {
+                        req.params = params;
+                        break;
+                    }
+                }
+            }
+
             index++;
         }
 
         if (index >= handlerEntries.length) {
-            if (!res.writableEnded) await serveStatic(req, res);
+            if (res.writableEnded) return;
+
+            const method = req.method ?? 'GET';
+            if (method === 'GET' || method === 'HEAD') {
+                await serveStatic(req, res);
+            } else {
+                const allow = allowedMethodsFor(req.url, handlerEntries);
+                res.writeHead(405, { Allow: allow, 'Content-Type': 'text/plain' });
+                res.end('405 Method Not Allowed');
+                if (logging) console.log(`Server: 405 ${method} ${req.url}`);
+            }
             return;
         }
 
@@ -242,19 +389,13 @@ export function createServer(options: ServerOptions): ServerInstance {
     }
 
     const httpServer = useTls
-        ? https.createServer(tlsContext!, async (req, res) => handleRequest(req, res))
-        : http.createServer(async (req, res) => handleRequest(req, res));
+        ? https.createServer(tlsContext!, (req, res) => handleRequest(req, res))
+        : http.createServer((req, res) => handleRequest(req, res));
 
     async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
-        const method = req.method ?? 'GET';
+        req.params = {};
 
         if (logging) console.log(`Client: ${req.method} ${req.url}`);
-
-        if (method !== 'GET' && method !== 'HEAD') {
-            res.writeHead(405, { Allow: 'GET, HEAD' });
-            res.end();
-            return;
-        }
 
         if ((req.url?.length ?? 0) > MAX_URL_LENGTH) {
             res.writeHead(414, { 'Content-Type': 'text/plain' });
@@ -287,24 +428,41 @@ export function createServer(options: ServerOptions): ServerInstance {
 
     let isListening = false;
 
+    function addRoute(method: string, routePath: string, handler: RequestHandler): ServerInstance {
+        const { regex, paramNames } = compilePattern(routePath);
+        handlerEntries.push({ kind: 'route', method: method.toUpperCase(), regex, paramNames, handler });
+        return instance;
+    }
+
     const instance: ServerInstance = {
         get root()      { return ROOT; },
         get port()      { return port; },
         get listening() { return isListening; },
         get server()    { return httpServer; },
 
+        // Middleware
         use(pathOrHandler: string | RequestHandler, maybeHandler?: RequestHandler): ServerInstance {
             if (typeof pathOrHandler === 'function') {
-                handlerEntries.push({ mountPath: null, handler: pathOrHandler });
+                handlerEntries.push({ kind: 'middleware', mountPath: null, handler: pathOrHandler });
             } else {
                 if (!maybeHandler) throw new TypeError('use(path, handler): handler is required');
                 handlerEntries.push({
+                    kind:      'middleware',
                     mountPath: normaliseMountPath(pathOrHandler),
                     handler:   maybeHandler,
                 });
             }
             return instance;
         },
+
+        // REST
+        get    (routePath, handler) { return addRoute('GET',     routePath, handler); },
+        post   (routePath, handler) { return addRoute('POST',    routePath, handler); },
+        put    (routePath, handler) { return addRoute('PUT',     routePath, handler); },
+        patch  (routePath, handler) { return addRoute('PATCH',   routePath, handler); },
+        delete (routePath, handler) { return addRoute('DELETE',  routePath, handler); },
+        head   (routePath, handler) { return addRoute('HEAD',    routePath, handler); },
+        options(routePath, handler) { return addRoute('OPTIONS', routePath, handler); },
 
         start(): Promise<void> {
             if (isListening) {
