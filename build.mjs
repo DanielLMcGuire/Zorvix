@@ -114,8 +114,8 @@ async function runBundling() {
 async function build() {
     try {
         const tsConfig = loadConfig();
-        cleanupDeclarations();
         runTypeCheck(tsConfig);
+        cleanupDeclarations();
         await runBundling();
 
         if (!isWatchMode) {
