@@ -13,7 +13,7 @@ const config = {
     },
 
     ts: {
-        entryFiles: ['src/api.mts', 'src/types.mts'],
+        entryFiles: [pkg.imports['#zorvix/api'], pkg.imports['#zorvix/cli']],
         outDir: 'dist',
         rootDir: 'src',
         keepDeclarations: new Set(['api.d.mts']),
