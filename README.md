@@ -12,7 +12,7 @@ A zero-dependency Node.js static file server with support for clustering, TLS, H
 
 ```bash
 # Install from NPM
-npm install zorvix 
+npm install -g zorvix 
 # Run
 zorvix <port> [options]
 ```
