@@ -42,7 +42,8 @@
     "scripts": {
         "build": "node build.mjs",
         "start": "node dist/server.min.mjs",
-        "dev": "node --watch src/server.mts"
+        "dev": "node --watch src/server.mts",
+        "prepublishOnly": "npm run build"
     },
     "devDependencies": {
         "@types/node": "^25.0.0",
