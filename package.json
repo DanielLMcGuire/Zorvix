@@ -44,11 +44,16 @@
         "build:dev": "node build.mjs --watch",
         "build:docs": "cd docs && node build.mjs",
         "start": "node dist/zorvix.min.mjs",
-        "prepublishOnly": "npm run build"
+        "prepublishOnly": "npm run build",
+        "test": "npx tsx --test tests/*.test.mts",
+        "test:range": "node --test tests/range.test.mts",
+        "test:mime": "node --test tests/mime.test.mts",
+        "test:server": "node --test tests/server.test.mts"
     },
     "devDependencies": {
         "@types/node": "^25.0.0",
         "esbuild": "^0.25.0",
+        "tsx": "^4.21.0",
         "typescript": "^5.0.0"
     }
 }

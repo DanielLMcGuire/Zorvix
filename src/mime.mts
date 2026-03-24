@@ -2,7 +2,7 @@ import mimeTypes from '#zorvix/mimetypes' with { type: 'json' };
 
 const COMPRESSIBLE_MIME_TYPES = new Set([
     'text/html', 'text/css', 'text/plain', 'text/xml', 'text/csv',
-    'application/javascript', 'application/json', 'application/xml',
+    'text/javascript', 'application/json', 'application/xml',
     'application/xhtml+xml', 'application/rss+xml', 'application/atom+xml',
     'image/svg+xml',
 ]);
@@ -12,7 +12,7 @@ const ATTACHMENT_MIME_TYPES = new Set([
     'application/x-newton-compatible-pkg', 'application/vnd.debian.binary-package',
     'application/x-rpm', 'application/vnd.android.package-archive',
     'application/x-ios-app',
-    'application/zip', 'application/x-tar', 'application/gzip', 'application/x-gzip',
+    'application/zip-compressed', 'application/x-tar', 'application/gzip', 'application/x-gzip',
     'application/x-bzip2', 'application/x-xz', 'application/x-7z-compressed',
     'application/vnd.rar', 'application/x-rar-compressed', 'application/zstd',
     'application/x-iso9660-image', 'application/x-raw-disk-image', 'application/octet-stream',
