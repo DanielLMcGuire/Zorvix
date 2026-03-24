@@ -99,7 +99,6 @@ server
 // Unmatched GET / HEAD requests fall through to static file serving as normal.
 
 await server.start();
-console.log(`Listening on port ${server.port}`);
 
 // Later…
 await server.stop();
@@ -113,6 +112,7 @@ await server.stop();
 | `root` | `string` | Directory to serve (default: `process.cwd()`) |
 | `logging` | `boolean` | Log requests to stdout (default: `false`) |
 | `devTools` | `boolean` | Enable Chrome DevTools workspace (default: `false`) |
+| `workers` | `boolean` | Fork a cluster of workers (default: `false`) |
 | `key` | `string \| Buffer` | TLS private key path or PEM buffer |
 | `cert` | `string \| Buffer` | TLS certificate path or PEM buffer |
 
