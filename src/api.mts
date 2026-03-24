@@ -8,7 +8,7 @@ import { createCache }   from '#server/cache';
 import { createDevToolsHandler } from '#server/devtools';
 import { serveBufferFile, serveStreamFile } from '#server/serve';
 import { isAttachment, cacheControlFor }    from '#server/mime';
-import { HEADERS_TIMEOUT_MS, REQUEST_TIMEOUT_MS } from '#server/types';
+import { HEADERS_TIMEOUT_MS, REQUEST_TIMEOUT_MS, MAX_HEADERS_COUNT, MAX_URL_LENGTH } from '#server/types';
 
 /**
  * Optional error value passed to `next()`.  When present the chain is aborted
@@ -32,10 +32,7 @@ export interface ServerOptions {
     root?:     string;
     /** Log requests and cache activity to stdout. Default: `false`. */
     logging?:  boolean;
-    /** 
-     * Enable Chrome DevTools workspace integration. Default: `false`. 
-     * https://developer.chrome.com/docs/devtools/workspaces/?utm_source=devtools
-     * */
+    /** Enable Chrome DevTools workspace integration. Default: `false`. */
     devTools?: boolean;
     /**
      * PEM-encoded TLS private key — either a file-system path (string) or the
@@ -232,13 +229,14 @@ export function createServer(options: ServerOptions): ServerInstance {
         }
 
         if (index >= handlerEntries.length) {
-            await serveStatic(req, res);
+            if (!res.writableEnded) await serveStatic(req, res);
             return;
         }
 
         const { handler } = handlerEntries[index];
         await handler(req, res, (err?: unknown) => {
             if (err !== undefined) return Promise.reject(err);
+            if (res.writableEnded) return Promise.resolve();
             return runHandlers(req, res, index + 1);
         });
     }
@@ -258,6 +256,20 @@ export function createServer(options: ServerOptions): ServerInstance {
             return;
         }
 
+        if ((req.url?.length ?? 0) > MAX_URL_LENGTH) {
+            res.writeHead(414, { 'Content-Type': 'text/plain' });
+            res.end('414 URI Too Long');
+            if (logging) console.log(`Server: 414 (URL too long: ${req.url?.length} bytes) ${req.url?.slice(0, 80)}…`);
+            return;
+        }
+
+        if (Object.keys(req.headers).length > MAX_HEADERS_COUNT) {
+            res.writeHead(431, { 'Content-Type': 'text/plain' });
+            res.end('431 Request Header Fields Too Large');
+            if (logging) console.log(`Server: 431 (${Object.keys(req.headers).length} headers) ${req.url}`);
+            return;
+        }
+
         try {
             await runHandlers(req, res, 0);
         } catch (err) {
@@ -269,8 +281,10 @@ export function createServer(options: ServerOptions): ServerInstance {
         }
     }
 
-    httpServer.headersTimeout = HEADERS_TIMEOUT_MS;
-    httpServer.requestTimeout = REQUEST_TIMEOUT_MS;
+    httpServer.headersTimeout  = HEADERS_TIMEOUT_MS;
+    httpServer.requestTimeout  = REQUEST_TIMEOUT_MS;
+    httpServer.maxHeadersCount = MAX_HEADERS_COUNT;
+
     let isListening = false;
 
     const instance: ServerInstance = {

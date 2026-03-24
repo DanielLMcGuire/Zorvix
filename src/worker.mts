@@ -7,7 +7,7 @@ import { createCache }   from '#server/cache';
 import { createDevToolsHandler } from '#server/devtools';
 import { serveBufferFile, serveStreamFile } from '#server/serve';
 import { isAttachment, cacheControlFor }    from '#server/mime';
-import { WorkerOptions, HEADERS_TIMEOUT_MS, REQUEST_TIMEOUT_MS } from '#server/types';
+import { WorkerOptions, HEADERS_TIMEOUT_MS, REQUEST_TIMEOUT_MS, MAX_HEADERS_COUNT, MAX_URL_LENGTH } from '#server/types';
 import { IncomingMessage, ServerResponse }  from 'http';
 
 export type { WorkerOptions };
@@ -70,6 +70,20 @@ export function runWorker(opts: WorkerOptions): void {
         if (method !== 'GET' && method !== 'HEAD') {
             res.writeHead(405, { Allow: 'GET, HEAD' });
             res.end();
+            return;
+        }
+
+        if ((req.url?.length ?? 0) > MAX_URL_LENGTH) {
+            res.writeHead(414, { 'Content-Type': 'text/plain' });
+            res.end('414 URI Too Long');
+            if (logging) console.log(`Server: 414 (URL too long: ${req.url?.length} bytes) ${req.url?.slice(0, 80)}…`);
+            return;
+        }
+
+        if (Object.keys(req.headers).length > MAX_HEADERS_COUNT) {
+            res.writeHead(431, { 'Content-Type': 'text/plain' });
+            res.end('431 Request Header Fields Too Large');
+            if (logging) console.log(`Server: 431 (${Object.keys(req.headers).length} headers) ${req.url}`);
             return;
         }
 
@@ -152,8 +166,9 @@ export function runWorker(opts: WorkerOptions): void {
         ? https.createServer(tlsContext!, handleRequest)
         : http.createServer(handleRequest);
 
-    server.headersTimeout = HEADERS_TIMEOUT_MS;
-    server.requestTimeout = REQUEST_TIMEOUT_MS;
+    server.headersTimeout  = HEADERS_TIMEOUT_MS;
+    server.requestTimeout  = REQUEST_TIMEOUT_MS;
+    server.maxHeadersCount = MAX_HEADERS_COUNT;
 
     server.listen(port, () => {
         const tag      = isDev ? ' [dev]' : '';
