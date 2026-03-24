@@ -553,6 +553,54 @@ describe('DevTools workspace endpoint', () => {
     });
 });
 
+describe('Extensionless file serving', () => {
+    let port: number;
+    let root: string;
+    let srv:  ReturnType<typeof createServer>;
+
+    before(async () => {
+        root = makeTmpRoot();
+        fs.writeFileSync(path.join(root, 'man.html'),   '<h1>man</h1>',   'utf8');
+        fs.writeFileSync(path.join(root, 'readme.txt'), '# readme',       'utf8');
+        fs.writeFileSync(path.join(root, 'config.json'), '{"x":1}',       'utf8');
+        srv  = createServer({ port: 0, root });
+        await srv.start();
+        port = boundPort(srv);
+    });
+
+    after(() => srv.stop());
+
+    it('serves an extensionless .html file', async () => {
+        const res = await get(port, '/man');
+        assert.equal(res.status, 200);
+        assert.match(res.headers['content-type'] ?? '', /text\/html/);
+        assert.match(res.text, /man/);
+    });
+
+    it('serves an extensionless .txt file when no .html exists', async () => {
+        const res = await get(port, '/readme');
+        assert.equal(res.status, 200);
+        assert.match(res.headers['content-type'] ?? '', /text\/plain/);
+    });
+
+    it('serves an extensionless .json file when no .html or .txt exists', async () => {
+        const res = await get(port, '/config');
+        assert.equal(res.status, 200);
+        assert.match(res.headers['content-type'] ?? '', /application\/json/);
+    });
+
+    it('ignores query-string content when resolving extensionless paths', async () => {
+        const res = await get(port, '/man?f=something.1');
+        assert.equal(res.status, 200);
+        assert.match(res.headers['content-type'] ?? '', /text\/html/);
+    });
+
+    it('returns 404 for an extensionless path with no matching file', async () => {
+        const res = await get(port, '/nonexistent');
+        assert.equal(res.status, 404);
+    });
+});
+
 describe('Allow header on 405', () => {
     let port: number;
     let srv:  ReturnType<typeof createServer>;

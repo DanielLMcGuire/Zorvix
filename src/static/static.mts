@@ -1,3 +1,4 @@
+import fs                                  from 'fs';
 import path                                from 'path';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import { serveBufferFile, serveStreamFile } from '#zorvix/serve';
@@ -7,7 +8,9 @@ import type { CachedFile } from '#zorvix/static-types';
 type GetFile      = (filepath: string) => Promise<CachedFile | null>;
 type DevToolsFn   = (req: IncomingMessage, res: ServerResponse, method: string) => void;
 
-export function resolveFilePath(url: string | undefined, root: string): string | null {
+const EXTENSIONLESS_CANDIDATES = ['.html', '.htm', '.json', '.txt'];
+
+export async function resolveFilePath(url: string | undefined, root: string): Promise<string | null> {
     const raw = !url || url === '/' ? '/index.html' : url.split('?')[0];
 
     let decoded: string;
@@ -19,6 +22,14 @@ export function resolveFilePath(url: string | undefined, root: string): string |
 
     const resolved = path.resolve(root, '.' + decoded);
     if (resolved !== root && !resolved.startsWith(root + path.sep)) return null;
+
+    if (!path.extname(resolved)) {
+        for (const ext of EXTENSIONLESS_CANDIDATES) {
+            const candidate = resolved + ext;
+            try { await fs.promises.access(candidate); return candidate; } catch {}
+        }
+    }
+
     return resolved;
 }
 
@@ -37,7 +48,7 @@ export function createStaticHandler(
             return;
         }
 
-        const filepath = resolveFilePath(req.url, root);
+        const filepath = await resolveFilePath(req.url, root);
 
         if (!filepath) {
             res.writeHead(400, { 'Content-Type': 'text/plain' });
