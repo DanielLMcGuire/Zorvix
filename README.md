@@ -1,9 +1,10 @@
 # Zorvix
 
-[![npm version](https://img.shields.io/npm/v/zorvix)](https://www.npmjs.com/package/zorvix)
+[![npm version](https://img.shields.io/npm/v/zorvix.svg)](https://www.npmjs.com/package/zorvix)
 [![Node Version](https://img.shields.io/node/v/zorvix.svg)](https://nodejs.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/DanielLMcGuire/Zorvix/ci.yml)](https://github.com/DanielLMcGuire/Zorvix/actions/workflows/ci.yml?query=event%3Apush+branch%3Amaster)
+[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/DanielLMcGuire/Zorvix/ci.yml.svg?label=npm%20run%20test
+)](https://github.com/DanielLMcGuire/Zorvix/actions/workflows/ci.yml?query=event%3Apush+branch%3Amaster)
 
 
 A zero-dependency Node.js static file server with support for clustering, TLS, HTTP caching, range requests, gzip, and Chrome DevTools workspace integration.
