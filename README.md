@@ -1,5 +1,9 @@
 # Zorvix
 
+[![npm version](https://badge.fury.io/js/zorvix.svg)](https://www.npmjs.com/package/zorvix)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node Version](https://img.shields.io/node/v/zorvix.svg)](https://nodejs.org)
+
 A zero-dependency Node.js static file server with support for clustering, TLS, HTTP caching, range requests, gzip, and Chrome DevTools workspace integration.
 
 ---
@@ -7,12 +11,8 @@ A zero-dependency Node.js static file server with support for clustering, TLS, H
 ## Usage
 
 ```bash
-# install build time deps
-npm install 
-# typecheck, compile ts, pack
-npm run build
-# install
-npm install -g .
+# Install from NPM
+npm install zorvix 
 # run
 npx zorvix <port> [options]
 ```
