@@ -14,10 +14,8 @@ A zero-dependency Node.js static file server with support for clustering, TLS, H
 ## Usage
 
 ```bash
-# Install from NPM
-npm install -g zorvix 
-# Run
-zorvix <port> [options]
+# Install and run from NPM
+npx zorvix <port> [options]
 ```
 
 ### Options
@@ -37,16 +35,16 @@ zorvix <port> [options]
 
 ```bash
 # Serve the current directory on port 8080
-zorvix 8080
+npx zorvix 8080
 
 # Serve a specific directory with request logging
-zorvix 3000 --root ./dist -l
+npx zorvix 3000 --root ./dist -l
 
 # HTTPS
-zorvix 443 --key ./key.pem --cert ./cert.pem
+npx zorvix 443 --key ./key.pem --cert ./cert.pem
 
 # Dev mode with DevTools workspace
-zorvix 8080 --dev --devtools -l
+npx zorvix 8080 --dev --devtools -l
 ```
 
 ---
