@@ -29,12 +29,12 @@ const config = {
 
         entries: [
             {
-                in: 'src/cli.mts',
-                out: pkg.bin.zorvix,
+                in: pkg.imports['#zorvix/cli'],
+                out: pkg.bin['zorvix'],
                 banner: '#!/usr/bin/env node',
             },
             {
-                in: 'src/api.mts',
+                in: pkg.imports['#zorvix/api'],
                 out: pkg.exports['.'].import,
             },
         ],
