@@ -4,6 +4,10 @@ export interface WorkerOptions {
     devTools:     boolean;
     hostRootArg?: string;
     isDev:        boolean;
+    /** Absolute path to the TLS private-key file (PEM). Requires `tlsCert`. */
+    tlsKey?:      string;
+    /** Absolute path to the TLS certificate file (PEM). Requires `tlsKey`. */
+    tlsCert?:     string;
 }
 
 export type CachedBuffer = {

@@ -1,4 +1,6 @@
 import http              from 'http';
+import https             from 'https';
+import fs                from 'fs';
 import crypto            from 'crypto';
 import path              from 'path';
 import { IncomingMessage, ServerResponse } from 'http';
@@ -26,6 +28,16 @@ export interface ServerOptions {
     logging?:  boolean;
     /** Enable Chrome DevTools workspace integration. Default: `false`. */
     devTools?: boolean;
+    /**
+     * Path to a PEM-encoded TLS private key file.
+     * Must be supplied together with `cert` to enable HTTPS.
+     */
+    key?:      string;
+    /**
+     * Path to a PEM-encoded TLS certificate file.
+     * Must be supplied together with `key` to enable HTTPS.
+     */
+    cert?:     string;
 }
 
 export interface ServerInstance {
@@ -53,8 +65,8 @@ export interface ServerInstance {
     readonly root:   string;
     /** The port passed to `createServer`. */
     readonly port:   number;
-    /** The underlying `http.Server` instance, in case you need low-level access. */
-    readonly server: http.Server;
+    /** The underlying `http.Server` or `https.Server` instance, in case you need low-level access. */
+    readonly server: http.Server | https.Server;
 }
 
 function resolveFilePath(url: string | undefined, root: string): string | null {
@@ -84,6 +96,15 @@ export function createServer(options: ServerOptions): ServerInstance {
     const handleDevTools = devToolsUUID
         ? createDevToolsHandler(ROOT, devToolsUUID, logging)
         : null;
+
+    const useTls = !!(options.key && options.cert);
+    let tlsContext: { key: Buffer; cert: Buffer } | undefined;
+    if (useTls) {
+        tlsContext = {
+            key:  fs.readFileSync(options.key!),
+            cert: fs.readFileSync(options.cert!),
+        };
+    }
 
     async function serveStatic(req: IncomingMessage, res: ServerResponse): Promise<void> {
         const method = req.method ?? 'GET';
@@ -173,7 +194,11 @@ export function createServer(options: ServerOptions): ServerInstance {
         await handlers[index](req, res, () => runHandlers(req, res, index + 1));
     }
 
-    const httpServer = http.createServer(async (req, res) => {
+    const httpServer = useTls
+        ? https.createServer(tlsContext!, async (req, res) => handler(req, res))
+        : http.createServer(async (req, res) => handler(req, res));
+
+    async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
         const method = req.method ?? 'GET';
 
         if (logging) console.log(`Client: ${req.method} ${req.url}`);
@@ -193,7 +218,7 @@ export function createServer(options: ServerOptions): ServerInstance {
                 res.end('500 Internal Server Error');
             }
         }
-    });
+    }
 
     httpServer.headersTimeout = HEADERS_TIMEOUT_MS;
     httpServer.requestTimeout = REQUEST_TIMEOUT_MS;
@@ -215,10 +240,12 @@ export function createServer(options: ServerOptions): ServerInstance {
                     httpServer.off('error', reject);
                     startPruning();
                     if (logging) {
+                        const protocol  = useTls ? 'https' : 'http';
+                        const defaultPort = useTls ? 443 : 80;
                         console.log(
-                            port !== 80
-                                ? `Server running at http://localhost:${port}/`
-                                : `Server running at http://localhost/`
+                            port !== defaultPort
+                                ? `Server running at ${protocol}://localhost:${port}/`
+                                : `Server running at ${protocol}://localhost/`
                         );
                     }
                     resolve();

@@ -1,4 +1,6 @@
 import http              from 'http';
+import https             from 'https';
+import fs                from 'fs';
 import crypto            from 'crypto';
 import path              from 'path';
 import { createCache }   from '#server/cache';
@@ -26,7 +28,7 @@ function getFilePath(url: string | undefined, root: string): string | null {
 }
 
 export function runWorker(opts: WorkerOptions): void {
-    const { port, logging, devTools, hostRootArg, isDev } = opts;
+    const { port, logging, devTools, hostRootArg, isDev, tlsKey, tlsCert } = opts;
     const ROOT = hostRootArg ? path.resolve(hostRootArg) : process.cwd();
 
     const { getFile, startPruning } = createCache(ROOT, logging);
@@ -36,6 +38,20 @@ export function runWorker(opts: WorkerOptions): void {
     const handleDevTools  = devToolsUUID
         ? createDevToolsHandler(ROOT, devToolsUUID, logging)
         : null;
+
+    const useTls = !!(tlsKey && tlsCert);
+    let tlsContext: { key: Buffer; cert: Buffer } | undefined;
+    if (useTls) {
+        try {
+            tlsContext = {
+                key:  fs.readFileSync(tlsKey!),
+                cert: fs.readFileSync(tlsCert!),
+            };
+        } catch (err) {
+            console.error('Error: failed to read TLS key/cert files:', err);
+            process.exit(1);
+        }
+    }
 
     let forcedExit = false;
 
@@ -132,18 +148,20 @@ export function runWorker(opts: WorkerOptions): void {
         });
     }
 
-    const server = http.createServer(handleRequest);
+    const server = useTls
+        ? https.createServer(tlsContext!, handleRequest)
+        : http.createServer(handleRequest);
 
     server.headersTimeout = HEADERS_TIMEOUT_MS;
     server.requestTimeout = REQUEST_TIMEOUT_MS;
 
     server.listen(port, () => {
-        const tag = isDev ? ' [dev]' : '';
-        console.log(
-            port !== 80
-                ? `Server running at http://localhost:${port}/${tag}`
-                : `Server running at http://localhost/${tag}`
-        );
+        const tag      = isDev ? ' [dev]' : '';
+        const protocol = useTls ? 'https' : 'http';
+        const host     = port !== (useTls ? 443 : 80)
+            ? `${protocol}://localhost:${port}/`
+            : `${protocol}://localhost/`;
+        console.log(`Server running at ${host}${tag}`);
     });
 
     process.on('SIGINT', () => {
