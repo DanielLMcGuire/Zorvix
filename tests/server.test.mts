@@ -6,6 +6,7 @@ import path    from 'node:path';
 import http    from 'node:http';
 import { gunzip } from 'node:zlib';
 import { createServer } from '#zorvix/api';
+import { createBodyParser } from '#zorvix/middleware';
 
 function boundPort(srv: ReturnType<typeof createServer>): number {
     return (srv.server.address() as { port: number }).port;
@@ -55,8 +56,8 @@ function requestHead(
     });
 }
 
-const get  = (port: number, p: string, h: Record<string, string> = {}) => request('GET',    port, p, h);
-const post = (port: number, p: string, body = '')                       => request('POST',   port, p, {}, body);
+const get  = (port: number, p: string, h: Record<string, string | number> = {}) => request('GET',    port, p, h);
+const post = (port: number, p: string, body = '', h: Record<string, string | number> = {}) => request('POST', port, p, h, body);
 const put  = (port: number, p: string)                                  => request('PUT',    port, p);
 const del  = (port: number, p: string)                                  => request('DELETE', port, p);
 
@@ -379,12 +380,65 @@ describe('Route parameters', () => {
     });
 });
 
-describe('Middleware', () => {
+describe('Body Parser Middleware', () => {
     let port: number;
     let srv:  ReturnType<typeof createServer>;
 
     before(async () => {
         srv = createServer({ port: 0, root: makeTmpRoot() });
+        srv.use(createBodyParser({ limit: 100 }));
+
+        srv.post('/api/echo', (req, res) => {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(req.body));
+        });
+
+        await srv.start();
+        port = boundPort(srv);
+    });
+
+    after(() => srv.stop());
+
+    it('parses application/json bodies into objects', async () => {
+        const payload = JSON.stringify({ key: 'value', num: 42 });
+        const res = await post(port, '/api/echo', payload, { 
+            'content-type': 'application/json',
+            'content-length': payload.length
+        });
+        
+        assert.equal(res.status, 200);
+        assert.deepEqual(JSON.parse(res.text), { key: 'value', num: 42 });
+    });
+
+    it('returns 413 Content Too Large when body exceeds limit via Content-Length', async () => {
+    const oversizedBody = 'a'.repeat(101);
+    const res = await post(port, '/api/echo', oversizedBody, { 
+        'content-type': 'application/json', 
+        'content-length': 101
+    });
+    
+    assert.equal(res.status, 413);
+    assert.match(res.text, /Content Too Large/);
+});
+
+    it('returns 400 Bad Request for malformed JSON', async () => {
+        const malformed = '{"key": "no-closing-brace"';
+        const res = await post(port, '/api/echo', malformed, { 
+            'content-type': 'application/json',
+            'content-length': malformed.length
+        });
+        
+        assert.equal(res.status, 400);
+        assert.match(res.text, /Malformed body/);
+    });
+});
+
+describe('Middleware', () => {
+    let port: number;
+    let srv:  ReturnType<typeof createServer>;
+
+    before(async () => {
+        srv = createServer({ port: 0, root: makeTmpRoot()});
 
         srv.use((_req, res, next) => {
             res.setHeader('X-Global', 'yes');

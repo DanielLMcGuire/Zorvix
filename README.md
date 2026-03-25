@@ -92,7 +92,7 @@ await server.stop();
 ## Features
 
 - **Caching** - `ETag` (SHA-1 for cached files, mtime-based for streamed) and `Last-Modified` headers; `304 Not Modified` for `If-None-Match` / `If-Modified-Since`
-- **Range requests** - `Accept-Ranges: bytes` advertised; `Range` and `If-Range` supported; `multi-range` supported;
+- **Range requests** - `Accept-Ranges: bytes` advertised; `Range` and `If-Range` supported; multi-range (`multipart/byteranges`) supported
 - **Gzip** - compressible MIME types are compressed when the client sends `Accept-Encoding: gzip`
 - **Content-Disposition** - binary/archive types are served with `attachment` so browsers download rather than render
 - **TLS** - pass `key`/`cert` as file paths or pre-loaded `Buffer`s to switch to `https.createServer`
@@ -100,6 +100,9 @@ await server.stop();
 - **Graceful shutdown** - idle connections closed immediately; active connections given a 5 s grace period before forced termination
 - **DevTools** - serves `/.well-known/appspecific/com.chrome.devtools.json` with a per-process UUID to register the root as a Chrome DevTools workspace
 - **WebSocket-friendly** - `server.server` exposes the underlying `http.Server` / `https.Server` for attaching WebSocket libraries
-- **TypeScript** - typings generated and bundled; 
+- **Query params** - `req.query` populated on every request; repeated keys collapse to `string[]`, single-occurrence keys remain `string`
+- **Body parsing** - opt-in `createBodyParser()` middleware; supports `application/json` and `application/x-www-form-urlencoded`; configurable byte limit (default 1 MiB); populates `req.body`
+- **Response helpers** - `res.json(data, status?)` and `res.html(markup, status?)` set correct `Content-Type` and `Content-Length` automatically
+- **TypeScript** - typings generated and bundled
 - **npm** - no runtime npm dependencies; requires Node.js 22+
 - **Security** - path traversal → `400`; URLs > 2048 bytes → `414`; > 50 headers → `431`; unmatched non-GET/HEAD → `405` with accurate `Allow` header

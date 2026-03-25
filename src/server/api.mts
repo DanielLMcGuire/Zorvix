@@ -32,6 +32,27 @@ import type { ServerOptions, ServerInstance, RequestHandler } from '#zorvix/api-
  * await server.start();
  * ```
  *
+ * @example JSON and query params
+ * ```ts
+ * // GET /search?q=zorvix&tag=fast&tag=small
+ * server.get('/search', (req, res) => {
+ *     // req.query → { q: 'zorvix', tag: ['fast', 'small'] }
+ *     res.json({ results: [] });
+ * });
+ * ```
+ *
+ * @example Body parsing
+ * ```ts
+ * import { createBodyParser } from '#zorvix/middleware';
+ *
+ * server.use(createBodyParser());
+ *
+ * server.post('/users', (req, res) => {
+ *     const { name } = req.body as { name: string };
+ *     res.json({ created: name }, 201);
+ * });
+ * ```
+ *
  * @example TLS
  * ```ts
  * const server = createServer({
@@ -99,11 +120,68 @@ export function createServer(options: ServerOptions): ServerInstance {
      * router (which falls back to static-file serving), and catches any
      * unhandled errors so the process never crashes on a single bad request.
      *
+     * Per-request setup performed here (before any middleware runs):
+     *
+     * - **`req.params`** is reset to `{}` so route handlers always have a
+     *   clean object to read from.
+     * - **`req.query`** is populated by parsing the URL's query string with
+     *   the platform `URLSearchParams` API. Keys that appear more than once
+     *   become an array; single-occurrence keys remain a plain string.
+     * - **`res.json(data, status?)`** is attached as a convenience method that
+     *   serialises `data` to JSON, sets `Content-Type: application/json` and
+     *   `Content-Length`, then ends the response.
+     * - **`res.html(markup, status?)`** is attached as a convenience method
+     *   that sends a UTF-8 HTML string with `Content-Type: text/html` and
+     *   `Content-Length`.
+     *
      * @param req - The incoming HTTP request.
      * @param res - The outgoing HTTP response.
      */
     async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
+        // ── Route params (reset each request) ────────────────────────────────
         req.params = {};
+
+        // ── Query-string parsing ──────────────────────────────────────────────
+        // Parse the query string from the URL into a plain object. Keys that
+        // appear multiple times produce an array; single-occurrence keys are a
+        // plain string. The result is always present (empty object when there
+        // is no query string).
+        //
+        // Example: /search?q=hello&tag=a&tag=b
+        //   → req.query = { q: 'hello', tag: ['a', 'b'] }
+        const rawQuery = req.url?.split('?')[1] ?? '';
+        const qp       = new URLSearchParams(rawQuery);
+        const query: Record<string, string | string[]> = {};
+        for (const key of new Set(qp.keys())) {
+            const vals   = qp.getAll(key);
+            query[key] = vals.length === 1 ? vals[0] : vals;
+        }
+        req.query = query;
+
+        // ── Response helpers ──────────────────────────────────────────────────
+        // Attach res.json() and res.html() on every response object so route
+        // handlers can send typed responses without manually setting headers.
+        res.json = function jsonHelper(data: unknown, status = 200): void {
+            const body = JSON.stringify(data);
+            if (!this.headersSent) {
+                this.writeHead(status, {
+                    'Content-Type':   'application/json',
+                    'Content-Length': Buffer.byteLength(body),
+                });
+            }
+            this.end(body);
+        };
+
+        res.html = function htmlHelper(markup: string, status = 200): void {
+            if (!this.headersSent) {
+                this.writeHead(status, {
+                    'Content-Type':   'text/html; charset=utf-8',
+                    'Content-Length': Buffer.byteLength(markup),
+                });
+            }
+            this.end(markup);
+        };
+
         try {
             await router.dispatch(req, res, serveStatic);
         } catch (err) {

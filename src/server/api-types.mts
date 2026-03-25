@@ -10,6 +10,44 @@ declare module 'http' {
         params: Record<string, string>;
         /** Parsed request body, populated by body-parsing middleware. `unknown` until narrowed by the caller. */
         body?: unknown;
+        /**
+         * Parsed query-string parameters from the request URL.
+         * Multi-value keys (e.g. `?tag=a&tag=b`) are collected into an array;
+         * single-value keys produce a plain string.
+         *
+         * Always present — populated before the first middleware runs.
+         *
+         * @example
+         * // GET /search?q=hello&tag=a&tag=b
+         * req.query  // → { q: 'hello', tag: ['a', 'b'] }
+         */
+        query: Record<string, string | string[]>;
+    }
+    interface ServerResponse {
+        /**
+         * Serialize `data` as JSON and send a complete response.
+         * Sets `Content-Type: application/json` and `Content-Length` automatically.
+         *
+         * @param data   - Any JSON-serialisable value.
+         * @param status - HTTP status code (default `200`).
+         *
+         * @example
+         * res.json({ ok: true });
+         * res.json({ error: 'Not found' }, 404);
+         */
+        json(data: unknown, status?: number): void;
+        /**
+         * Send an HTML string as a complete response.
+         * Sets `Content-Type: text/html; charset=utf-8` and `Content-Length` automatically.
+         *
+         * @param markup - UTF-8 HTML string.
+         * @param status - HTTP status code (default `200`).
+         *
+         * @example
+         * res.html('<h1>Hello</h1>');
+         * res.html('<p>Not found</p>', 404);
+         */
+        html(markup: string, status?: number): void;
     }
 }
 
