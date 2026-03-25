@@ -18,7 +18,6 @@ A typed zero-dependency Node.js static file / REST routing server with support f
 # Install and run from NPM
 npx zorvix <port> [options]
 ```
-
 ### Options
 
 | Flag | Description |
@@ -31,6 +30,8 @@ npx zorvix <port> [options]
 | `--key <file>` | Path to PEM private key, enables HTTPS (requires `--cert`) |
 | `--cert <file>` | Path to PEM certificate, enables HTTPS (requires `--key`) |
 | `-h, --help` | Print help and exit |
+
+#### [Full `zorvix.1` documentation](https://github.com/DanielLMcGuire/Zorvix/wiki/zorvix.1)
 
 ### Examples
 
@@ -89,6 +90,8 @@ server.port       // bound port
 server.listening  // boolean
 server.server     // underlying http.Server / https.Server
 ```
+
+#### [Full `zorvix.3` documentation](https://github.com/DanielLMcGuire/Zorvix/wiki/zorvix.3)
 
 ### Example
 
