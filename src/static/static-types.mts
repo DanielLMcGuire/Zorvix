@@ -32,7 +32,12 @@ export type CachedFile = CachedBuffer | CachedStream;
 
 export type ByteRange = { start: number; end: number };
 
-export type RangeResult = ByteRange | 'not-satisfiable' | 'not-implemented';
+/** A parsed Range header result.
+ *  - `ByteRange`   – a single satisfiable range
+ *  - `ByteRange[]` – two or more satisfiable ranges (multipart/byteranges)
+ *  - `'not-satisfiable'` – RFC 7233 §4.4 error; send 416
+ */
+export type RangeResult = ByteRange | ByteRange[] | 'not-satisfiable';
 
-export const MAX_CACHE_SIZE      = 8_112 * 1024;  // ~8 MB
-export const CACHE_TTL_MS        = 80_000;        // evict entries after 1.3 m
+export const MAX_CACHE_SIZE = 8_112 * 1024;  // ~8 MB
+export const CACHE_TTL_MS   = 80_000;        // evict entries after 1.3 m

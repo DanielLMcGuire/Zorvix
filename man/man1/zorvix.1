@@ -1,5 +1,4 @@
-.TH ZORVIX 1 "2025" "zorvix 1.3.2" "User Commands"
-zorvix \- static HTTP/HTTPS file server with REST routing and cluster support
+.TH ZORVIX 1 "2025" "zorvix 1.5.0" "User Commands"
 .B zorvix
 .I port
 .RB [ \-r | \-\-root
@@ -168,13 +167,7 @@ is advertised on every file response.
 The
 .B Range
 header is parsed according to RFC\~7233.
-Multi-range requests (comma-separated ranges) return
-.BR "501 Not Implemented" .
-Unsatisfiable ranges return
-.BR "416 Range Not Satisfiable"
-with a
-.B Content-Range: bytes */\fItotal\fR
-header.
+Multi-range requests (comma-separated ranges) are also implemented.
 The
 .B If-Range
 header is supported; if it does not match the current ETag, the full file

@@ -1,10 +1,80 @@
-import fs                              from 'fs';
-import path                            from 'path';
-import zlib                            from 'zlib';
+import fs                               from 'fs';
+import path                             from 'path';
+import zlib                             from 'zlib';
+import crypto                           from 'crypto';
 import { IncomingMessage, ServerResponse } from 'node:http';
-import { CachedBuffer, CachedStream }  from '#zorvix/static-types';
-import { isCompressible }              from '#zorvix/mime';
+import type { CachedBuffer, CachedStream, ByteRange } from '#zorvix/static-types';
+import { isCompressible }               from '#zorvix/mime';
 import { parseRange, handleRangeError } from '#zorvix/range';
+
+function makeBoundary(): string {
+    return crypto.randomBytes(16).toString('hex');
+}
+
+/**
+ * Build a `multipart/byteranges` body for an in-memory buffer.
+ * All slicing is synchronous.
+ */
+function buildBufferMultipart(
+    ranges:      ByteRange[],
+    totalSize:   number,
+    contentType: string,
+    boundary:    string,
+    buf:         Buffer,
+): Buffer {
+    const parts: Buffer[] = [];
+    for (const { start, end } of ranges) {
+        parts.push(Buffer.from(
+            `--${boundary}\r\n` +
+            `Content-Type: ${contentType}\r\n` +
+            `Content-Range: bytes ${start}-${end}/${totalSize}\r\n` +
+            `\r\n`,
+        ));
+        parts.push(buf.subarray(start, end + 1));
+        parts.push(Buffer.from('\r\n'));
+    }
+    parts.push(Buffer.from(`--${boundary}--\r\n`));
+    return Buffer.concat(parts);
+}
+
+/** Read a specific byte range from a file into a Buffer. */
+function readFileRange(filepath: string, start: number, end: number): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+        const chunks: Buffer[] = [];
+        const stream = fs.createReadStream(filepath, { start, end });
+        stream.on('data', (chunk: Buffer | string) =>
+            chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+        );
+        stream.on('end',   () => resolve(Buffer.concat(chunks)));
+        stream.on('error', reject);
+    });
+}
+
+/**
+ * Build a `multipart/byteranges` body for a file that is too large to be
+ * cached. Each range is read sequentially from disk.
+ */
+async function buildStreamMultipart(
+    ranges:      ByteRange[],
+    totalSize:   number,
+    contentType: string,
+    boundary:    string,
+    filepath:    string,
+): Promise<Buffer> {
+    const parts: Buffer[] = [];
+    for (const { start, end } of ranges) {
+        parts.push(Buffer.from(
+            `--${boundary}\r\n` +
+            `Content-Type: ${contentType}\r\n` +
+            `Content-Range: bytes ${start}-${end}/${totalSize}\r\n` +
+            `\r\n`,
+        ));
+        parts.push(await readFileRange(filepath, start, end));
+        parts.push(Buffer.from('\r\n'));
+    }
+    parts.push(Buffer.from(`--${boundary}--\r\n`));
+    return Buffer.concat(parts);
+}
 
 export function serveBufferFile(
     req:         IncomingMessage,
@@ -21,10 +91,27 @@ export function serveBufferFile(
 
     if (honorRange) {
         const range = parseRange(rangeHeader!, totalSize);
-        if (range === 'not-satisfiable' || range === 'not-implemented') {
-            handleRangeError(res, range, totalSize, req.url, logging);
+
+        if (range === 'not-satisfiable') {
+            handleRangeError(res, totalSize, req.url, logging);
             return;
         }
+
+        if (Array.isArray(range)) {
+            const boundary = makeBoundary();
+            const body     = buildBufferMultipart(
+                range, totalSize, fileData.contentType, boundary, fileData.buffer,
+            );
+            res.writeHead(206, {
+                ...baseHeaders,
+                'Content-Type':   `multipart/byteranges; boundary=${boundary}`,
+                'Content-Length': body.byteLength,
+            });
+            if (method !== 'HEAD') res.end(body);
+            else                   res.end();
+            return;
+        }
+
         const { start, end } = range;
         const body = fileData.buffer.subarray(start, end + 1);
         res.writeHead(206, {
@@ -33,17 +120,18 @@ export function serveBufferFile(
             'Content-Length': body.byteLength,
         });
         if (method !== 'HEAD') res.end(body);
-        else res.end();
+        else                   res.end();
+
     } else if (acceptsGzip && fileData.gzipped) {
         const body = fileData.gzipped;
         res.writeHead(200, { ...baseHeaders, 'Content-Encoding': 'gzip', 'Content-Length': body.byteLength });
         if (method !== 'HEAD') res.end(body);
-        else res.end();
+        else                   res.end();
     } else {
         const body = fileData.buffer;
         res.writeHead(200, { ...baseHeaders, 'Content-Length': body.byteLength });
         if (method !== 'HEAD') res.end(body);
-        else res.end();
+        else                   res.end();
     }
 }
 
@@ -64,10 +152,31 @@ export function serveStreamFile(
 
     if (honorRange) {
         const range = parseRange(rangeHeader!, totalSize);
-        if (range === 'not-satisfiable' || range === 'not-implemented') {
-            handleRangeError(res, range, totalSize, req.url, logging);
+
+        if (range === 'not-satisfiable') {
+            handleRangeError(res, totalSize, req.url, logging);
             return;
         }
+
+        if (Array.isArray(range)) {
+            const boundary = makeBoundary();
+            buildStreamMultipart(
+                range, totalSize, fileData.contentType, boundary, fileData.path,
+            ).then(body => {
+                res.writeHead(206, {
+                    ...baseHeaders,
+                    'Content-Type':   `multipart/byteranges; boundary=${boundary}`,
+                    'Content-Length': body.byteLength,
+                });
+                if (method !== 'HEAD') res.end(body);
+                else                   res.end();
+            }).catch(() => {
+                if (!res.headersSent) res.writeHead(500, { 'Content-Type': 'text/plain' });
+                res.end('Internal Server Error');
+            });
+            return;
+        }
+
         const { start, end } = range;
         res.writeHead(206, {
             ...baseHeaders,
@@ -81,6 +190,7 @@ export function serveStreamFile(
             res.end('Internal Server Error');
         });
         fileStream.pipe(res);
+
     } else if (method === 'HEAD') {
         res.writeHead(200, baseHeaders);
         res.end();

@@ -1,49 +1,63 @@
-import { ServerResponse }          from 'node:http';
+import { ServerResponse }               from 'node:http';
 import type { RangeResult, ByteRange }  from '#zorvix/static-types';
 
+/**
+ * Parse an RFC 7233 `Range: bytes=...` header.
+ *
+ * Returns:
+ *  - `ByteRange`        – a single satisfiable range
+ *  - `ByteRange[]`      – two or more satisfiable ranges
+ *  - `'not-satisfiable'`– any spec is syntactically invalid or out of bounds
+ */
 export function parseRange(header: string, totalSize: number): RangeResult {
-    if (header.includes(',')) return 'not-implemented';
+    const raw = header.trim();
+    if (!raw.startsWith('bytes=')) return 'not-satisfiable';
 
-    const m = /^bytes=(\d*)-(\d*)$/.exec(header.trim());
-    if (!m) return 'not-satisfiable';
+    const specs  = raw.slice(6).split(',').map(s => s.trim());
+    const ranges: ByteRange[] = [];
 
-    const hasStart = m[1] !== '';
-    const hasEnd   = m[2] !== '';
+    for (const spec of specs) {
+        const m = /^(\d*)-(\d*)$/.exec(spec);
+        if (!m) return 'not-satisfiable';
 
-    if (!hasStart && !hasEnd) return 'not-satisfiable';
+        const hasStart = m[1] !== '';
+        const hasEnd   = m[2] !== '';
+        if (!hasStart && !hasEnd) return 'not-satisfiable';
 
-    let start: number;
-    let end:   number;
+        let start: number;
+        let end:   number;
 
-    if (!hasStart) {
-        const suffix = parseInt(m[2], 10);
-        start = Math.max(0, totalSize - suffix);
-        end   = totalSize - 1;
-    } else {
-        start = parseInt(m[1], 10);
-        end   = hasEnd ? parseInt(m[2], 10) : totalSize - 1;
+        if (!hasStart) {
+            // suffix-range: bytes=-N  →  last N bytes
+            const suffix = parseInt(m[2], 10);
+            start = Math.max(0, totalSize - suffix);
+            end   = totalSize - 1;
+        } else {
+            start = parseInt(m[1], 10);
+            end   = hasEnd ? parseInt(m[2], 10) : totalSize - 1;
+        }
+
+        end = Math.min(end, totalSize - 1);
+        if (start > end || start >= totalSize) return 'not-satisfiable';
+
+        ranges.push({ start, end });
     }
 
-    end = Math.min(end, totalSize - 1);
-    if (start > end || start >= totalSize) return 'not-satisfiable';
-
-    return { start, end } satisfies ByteRange;
+    if (ranges.length === 0) return 'not-satisfiable';
+    return ranges.length === 1 ? ranges[0] : ranges;
 }
 
+/** Send a 416 Range Not Satisfiable response. */
 export function handleRangeError(
     res:       ServerResponse,
-    result:    'not-satisfiable' | 'not-implemented',
     totalSize: number,
     url:       string | undefined,
     logging:   boolean,
 ): void {
-    if (result === 'not-implemented') {
-        res.writeHead(501, { 'Content-Type': 'text/plain' });
-        res.end('501 Not Implemented: multi-range requests are not supported');
-        if (logging) console.log(`Server: 501 (multi-range) ${url}`);
-    } else {
-        res.writeHead(416, { 'Content-Range': `bytes */${totalSize}`, 'Content-Type': 'text/plain' });
-        res.end('416 Range Not Satisfiable');
-        if (logging) console.log(`Server: 416 ${url}`);
-    }
+    res.writeHead(416, {
+        'Content-Range': `bytes */${totalSize}`,
+        'Content-Type':  'text/plain',
+    });
+    res.end('416 Range Not Satisfiable');
+    if (logging) console.log(`Server: 416 ${url}`);
 }

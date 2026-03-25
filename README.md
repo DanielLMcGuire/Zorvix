@@ -92,7 +92,7 @@ await server.stop();
 ## Features
 
 - **Caching** - `ETag` (SHA-1 for cached files, mtime-based for streamed) and `Last-Modified` headers; `304 Not Modified` for `If-None-Match` / `If-Modified-Since`
-- **Range requests** - `Accept-Ranges: bytes` advertised; `Range` and `If-Range` supported; multi-range returns `501`
+- **Range requests** - `Accept-Ranges: bytes` advertised; `Range` and `If-Range` supported; `multi-range` supported;
 - **Gzip** - compressible MIME types are compressed when the client sends `Accept-Encoding: gzip`
 - **Content-Disposition** - binary/archive types are served with `attachment` so browsers download rather than render
 - **TLS** - pass `key`/`cert` as file paths or pre-loaded `Buffer`s to switch to `https.createServer`
