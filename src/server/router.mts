@@ -1,9 +1,5 @@
 import { IncomingMessage, ServerResponse } from 'node:http';
 
-/**
- * Optional error value passed to `next()`.  When present the chain is aborted
- * and the error is re-thrown so the top-level try/catch can handle it.
- */
 export type NextFunction = (err?: unknown) => void | Promise<void>;
 
 export type RequestHandler = (
@@ -32,8 +28,9 @@ type HandlerEntry = MiddlewareEntry | RouteEntry;
  * Compile an Express-style route path into a RegExp + param name list.
  *
  * Supported syntax:
- *   :name   — captures one path segment (no slashes)
- *   *       — captures everything (including slashes)
+ *   :name        — captures one path segment (no slashes)
+ *   *name        — named wildcard, captures everything including slashes
+ *   *            — anonymous wildcard, captures everything (legacy)
  */
 export function compilePattern(routePath: string): { regex: RegExp; paramNames: string[] } {
     const paramNames: string[] = [];
@@ -43,6 +40,11 @@ export function compilePattern(routePath: string): { regex: RegExp; paramNames: 
     src = src.replace(/:([a-zA-Z_][a-zA-Z0-9_]*)/g, (_full, name: string) => {
         paramNames.push(name);
         return '([^/]+)';
+    });
+
+    src = src.replace(/\*([a-zA-Z_][a-zA-Z0-9_]*)/g, (_full, name: string) => {
+        paramNames.push(name);
+        return '(.*)';
     });
 
     let wildcardIdx = 0;

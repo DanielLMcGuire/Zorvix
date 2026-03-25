@@ -343,6 +343,11 @@ describe('Route parameters', () => {
             res.end(JSON.stringify({ wildcard: req.params['0'] }));
         });
 
+        srv.get('/static/*path', (req, res, _next) => {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ path: req.params['path'] }));
+        });
+
         srv.get('/multi/:a/:b', (req, res, _next) => {
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ a: req.params['a'], b: req.params['b'] }));
@@ -377,6 +382,33 @@ describe('Route parameters', () => {
         const res = await get(port, '/files/a/b/c.txt');
         assert.equal(res.status, 200);
         assert.equal(JSON.parse(res.text).wildcard, 'a/b/c.txt');
+    });
+
+    it('named wildcard (*path) captures a single segment', async () => {
+        const res  = await get(port, '/static/logo.png');
+        assert.equal(res.status, 200);
+        assert.equal(JSON.parse(res.text).path, 'logo.png');
+    });
+
+    it('named wildcard (*path) captures multiple slash-separated segments', async () => {
+        const res  = await get(port, '/static/assets/img/hero.webp');
+        assert.equal(res.status, 200);
+        assert.equal(JSON.parse(res.text).path, 'assets/img/hero.webp');
+    });
+
+    it('named wildcard param is keyed by name, not by numeric index', async () => {
+        const res  = await get(port, '/static/deep/nested/file.js');
+        const body = JSON.parse(res.text);
+        assert.equal(body.path, 'deep/nested/file.js',
+            'param should be keyed as "path", not "0"');
+        assert.equal(body['0'], undefined,
+            'numeric key "0" must not be present for a named wildcard');
+    });
+
+    it('named wildcard (*path) decodes a URL-encoded segment', async () => {
+        const res  = await get(port, '/static/my%20file.txt');
+        assert.equal(res.status, 200);
+        assert.equal(JSON.parse(res.text).path, 'my file.txt');
     });
 });
 
