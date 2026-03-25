@@ -25,7 +25,7 @@ type RouteEntry = {
 type HandlerEntry = MiddlewareEntry | RouteEntry;
 
 /**
- * Compile an Express-style route path into a RegExp + param name list.
+ * Compile an Express 4 style route path into a RegExp + param name list.
  *
  * Supported syntax:
  *   :name        — captures one path segment (no slashes)
