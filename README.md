@@ -6,7 +6,7 @@
 [![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/DanielLMcGuire/Zorvix/ci.yml.svg?label=npm%20run%20test
 )](https://github.com/DanielLMcGuire/Zorvix/actions/workflows/ci.yml?query=event%3Apush+branch%3Amaster)
 
-A typed zero-dependency Node.js static file / REST routing server with support for clustering, TLS, HTTP caching, range requests, gzip, middleware, and Chrome DevTools workspace integration.
+A typed zero-dependency Node.js http/https server supporting CLI with in-built clustering, and caching, and an API that adds REST routing and middleware support.
 
 ---
 
