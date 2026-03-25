@@ -75,7 +75,7 @@ const server = createServer({
 server.use((req, res, next) => { next(); });
 server.use('/api', authMiddleware);
  
-// Routes support :name params and * wildcards
+// Routes support :name params and full * / *endpoint wildcards 
 server.get('/users/:id', (req, res) => res.end(req.params.id));
 server.post('/users', handler);
 server.put('/users/:id', handler);
