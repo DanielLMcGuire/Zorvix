@@ -72,6 +72,14 @@ export interface ServerOptions {
      */
     workers?:  boolean;
     /**
+     * Enable the in-memory file cache.  When `false` every static-file request
+     * is served directly from disk with no caching or cache pruning.  Useful
+     * in dev / devtools mode where files change frequently and stale cache
+     * entries would mask updates.
+     * Default: `true`.
+     */
+    cache?:    boolean;
+    /**
      * PEM-encoded TLS private key — either a file-system path (string) or the
      * key material itself (Buffer).  Must be supplied together with `cert` to
      * enable HTTPS.

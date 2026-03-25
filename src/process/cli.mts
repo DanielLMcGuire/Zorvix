@@ -76,6 +76,7 @@ createServer({
     logging,
     devTools,
     workers:  !isDev,
+    cache:    !(isDev || devTools),
     key:      tlsKey,
     cert:     tlsCert,
 }).start();

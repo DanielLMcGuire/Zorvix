@@ -76,11 +76,9 @@ export { createBodyParser } from '#zorvix/middleware';
  *   cluster primary, a lightweight primary-only instance is returned instead.
  */
 export function createServer(options: ServerOptions): ServerInstance {
-    const { port, logging = false, devTools = false, workers = false } = options;
+    const { port, logging = false, devTools = false, workers = false, cache = true } = options;
     const root = options.root ? path.resolve(options.root) : process.cwd();
 
-    // In cluster mode the primary process only manages workers — it does not
-    // set up a router or bind a socket itself.
     if (workers && cluster.isPrimary) {
         return createPrimaryInstance(port, root);
     }
@@ -90,9 +88,8 @@ export function createServer(options: ServerOptions): ServerInstance {
         ? { key: resolvePem(options.key!), cert: resolvePem(options.cert!) }
         : undefined;
 
-    const { getFile, startPruning } = createCache(root, logging);
+    const { getFile, startPruning } = createCache(root, logging, cache);
 
-    /** Randomly-generated UUID that scopes the DevTools endpoint, preventing accidental exposure. */
     const devToolsUUID   = devTools ? crypto.randomUUID() : null;
     const handleDevTools = devToolsUUID
         ? createDevToolsHandler(root, devToolsUUID, logging)
@@ -101,7 +98,6 @@ export function createServer(options: ServerOptions): ServerInstance {
     const serveStatic = createStaticHandler(root, getFile, handleDevTools, logging);
     const router = createRouter(logging);
 
-    // Global middleware — logging runs first, then the security guard.
     if (logging) router.addMiddleware(null, createLoggingMiddleware());
     router.addMiddleware(null, createGuardMiddleware(logging));
 
@@ -109,8 +105,6 @@ export function createServer(options: ServerOptions): ServerInstance {
         ? https.createServer(tlsContext!, handleRequest)
         : http.createServer(handleRequest);
 
-    // Apply conservative timeouts and header limits to reduce exposure to
-    // slow-loris and header-overflow attacks.
     httpServer.headersTimeout  = HEADERS_TIMEOUT_MS;
     httpServer.requestTimeout  = REQUEST_TIMEOUT_MS;
     httpServer.maxHeadersCount = MAX_HEADERS_COUNT;

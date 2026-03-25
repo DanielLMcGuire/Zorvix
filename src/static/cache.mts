@@ -14,7 +14,7 @@ function gzipAsync(buf: Buffer): Promise<Buffer> {
     );
 }
 
-export function createCache(root: string, logging: boolean) {
+export function createCache(root: string, logging: boolean, doCache = true) {
     const fileCache    = new Map<string, CachedFile>();
     let cacheUsedBytes = 0;
 
@@ -28,6 +28,7 @@ export function createCache(root: string, logging: boolean) {
     }
 
     function startPruning(): void {
+        if (!doCache) return;
         setInterval(() => {
             const now = Date.now();
             for (const [key, entry] of fileCache) {
@@ -41,16 +42,17 @@ export function createCache(root: string, logging: boolean) {
     }
 
     async function getFile(filepath: string): Promise<CachedFile | null> {
-        const cached = fileCache.get(filepath);
-
-        if (cached) {
-            if (Date.now() - cached.cachedAt < CACHE_TTL_MS) {
-                if (logging) logCacheUsage('Cache hit', filepath);
-                return cached;
+        if (doCache) {
+            const cached = fileCache.get(filepath);
+            if (cached) {
+                if (Date.now() - cached.cachedAt < CACHE_TTL_MS) {
+                    if (logging) logCacheUsage('Cache hit', filepath);
+                    return cached;
+                }
+                if ('buffer' in cached) cacheUsedBytes -= cached.buffer.length;
+                fileCache.delete(filepath);
+                if (logging) console.log(`Server: Cache expired ${path.relative(root, filepath)}`);
             }
-            if ('buffer' in cached) cacheUsedBytes -= cached.buffer.length;
-            fileCache.delete(filepath);
-            if (logging) console.log(`Server: Cache expired ${path.relative(root, filepath)}`);
         }
 
         try {
@@ -60,6 +62,17 @@ export function createCache(root: string, logging: boolean) {
             const ext          = path.extname(filepath);
             const contentType  = getMimeType(ext);
             const lastModified = stats.mtime.toUTCString();
+
+            if (!doCache) {
+                // No-cache mode: read from disk on every request, never store.
+                const etag = `"${stats.mtimeMs.toString(36)}-${stats.size.toString(36)}"`;
+                if (stats.size <= MAX_CACHE_SIZE) {
+                    const buffer  = await fs.promises.readFile(filepath);
+                    const gzipped = isCompressible(ext) ? await gzipAsync(buffer) : null;
+                    return { buffer, gzipped, contentType, etag, lastModified, cachedAt: 0 };
+                }
+                return { path: filepath, size: stats.size, contentType, etag, lastModified, cachedAt: 0 };
+            }
 
             if (stats.size <= MAX_CACHE_SIZE) {
                 const buffer  = await fs.promises.readFile(filepath);
