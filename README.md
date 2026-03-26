@@ -24,7 +24,7 @@ npx zorvix <port> [options]
 | `<port>` | Port to listen on (required) |
 | `-r, --root <dir>` | Directory to serve (default: `cwd`) |
 | `-l, --log` | Enable request logging |
-| `--dev` | Single process, exit on uncaught exception |
+| `--dev` | Single process, no cache, exit on uncaught exception |
 | `-dt, --devtools` | Enable Chrome DevTools workspace |
 | `--key / --cert` | PEM key and cert files to enable HTTPS |
 
