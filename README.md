@@ -7,7 +7,7 @@
 [![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/DanielLMcGuire/Zorvix/ci.yml.svg?label=npm%20run%20test
 )](https://github.com/DanielLMcGuire/Zorvix/actions/workflows/ci.yml?query=event%3Apush+branch%3Amaster)
 
-A typed zero-dependency Node.js http/https server supporting CLI with in-built clustering, caching, and an API that adds REST routing and Express style middleware support.
+A fast zero-dependency Node.js typed http/1.1 server supporting CLI with TLS, in-built clustering, caching, and an API that adds REST routing and Express style middleware support.
 
 [Full Benchmarks](https://github.com/DanielLMcGuire/Zorvix/wiki/Benchmarks) <sub>against Express and 0http</sub>
 
@@ -133,8 +133,6 @@ await server.stop();
 #### [Full `zorvix(3)` documentation](https://github.com/DanielLMcGuire/Zorvix/wiki/zorvix.3)
 
 ---
-
-<img src="https://zorvix.pages.dev/bench-latest.svg" width="700"></img>
 
 ## Features
 
