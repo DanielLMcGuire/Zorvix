@@ -27,6 +27,7 @@ npx zorvix <port> [options]
 | `--dev` | Single process, exit on uncaught exception |
 | `-dt, --devtools` | Enable Chrome DevTools workspace |
 | `--key / --cert` | PEM key and cert files to enable HTTPS |
+
  
 ```bash
 npx zorvix 8080                          # Serve current directory
@@ -35,7 +36,7 @@ npx zorvix 443 --key ./key.pem --cert ./cert.pem  # HTTPS
 npx zorvix 8080 --dev --devtools -l      # Dev mode + DevTools
 ```
 
-#### [Full `zorvix.1` documentation](https://github.com/DanielLMcGuire/Zorvix/wiki/zorvix.1)
+#### [Full `zorvix(1)` documentation](https://github.com/DanielLMcGuire/Zorvix/wiki/zorvix.1)
 
 ### Examples
 
@@ -129,7 +130,7 @@ await server.start();
 await server.stop();
 ```
 
-#### [Full `zorvix.3` documentation](https://github.com/DanielLMcGuire/Zorvix/wiki/zorvix.3)
+#### [Full `zorvix(3)` documentation](https://github.com/DanielLMcGuire/Zorvix/wiki/zorvix.3)
 
 ---
 
