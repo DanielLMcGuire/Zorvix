@@ -15,6 +15,48 @@ import { HEADERS_TIMEOUT_MS, REQUEST_TIMEOUT_MS, MAX_HEADERS_COUNT, SHUTDOWN_GRA
 import type { ServerOptions, ServerInstance, RequestHandler } from '#zorvix/api-types';
 export { createBodyParser } from '#zorvix/middleware';
 
+/**
+ * Cluster-safe application entrypoint.
+ *
+ * When `workers` is `true` and the current process is the cluster primary,
+ * the primary forks and supervises a worker without ever invoking `setup` —
+ * so no user code (DB connections, route registration, etc.) runs in the
+ * primary process.  In all other cases (single-process or inside a worker)
+ * `setup` is called immediately with a fully configured {@link ServerInstance}.
+ *
+ * Use this instead of {@link createServer} when `workers: true`.  For tests
+ * and single-process usage {@link createServer} remains the right choice.
+ *
+ * @example
+ * ```ts
+ * serve({ port: 3000, workers: true }, async (server) => {
+ *     await db.connect();
+ *     server.get('/users', async (req, res) => {
+ *         res.json(await db.query('SELECT * FROM users'));
+ *     });
+ *     await server.start();
+ * });
+ * ```
+ */
+export function serve(
+    options: ServerOptions,
+    setup:   (server: ServerInstance) => void | Promise<void>,
+): void {
+    const { workers = false } = options;
+
+    if (workers && cluster.isPrimary) {
+        const root = options.root ? path.resolve(options.root) : process.cwd();
+        createPrimaryInstance(options.port, root).start().catch(console.error);
+        return;
+    }
+
+    const server = createServer(options);
+    Promise.resolve(setup(server)).catch(err => {
+        console.error('Server: Unhandled error in setup:', err);
+        process.exit(1);
+    });
+}
+
 
 /**
  * Creates and configures a Zorvix HTTP or HTTPS server.

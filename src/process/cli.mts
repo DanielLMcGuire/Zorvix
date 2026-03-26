@@ -1,4 +1,4 @@
-import { createServer } from '#zorvix/api';
+import { serve } from '#zorvix/api';
 import pkg from '#zorvix/pkg' with { type: 'json' };
 const { version } = pkg;
 
@@ -70,7 +70,7 @@ if (tlsCertIdx !== -1 && !tlsCert) {
     printHelp(1);
 }
 
-createServer({
+serve({
     port:     port!,
     root:     hostRootArg,
     logging,
@@ -79,4 +79,6 @@ createServer({
     cache:    !(isDev || devTools),
     key:      tlsKey,
     cert:     tlsCert,
-}).start();
+}, async (server) => {
+    await server.start();
+});

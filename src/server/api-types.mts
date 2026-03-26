@@ -150,3 +150,36 @@ export interface ServerInstance {
      */
     readonly server:    http.Server | https.Server;
 }
+
+/**
+ * Cluster-safe application entrypoint.
+ *
+ * When `workers` is `true` and the current process is the cluster primary,
+ * the primary forks and supervises a worker without ever invoking `setup` —
+ * so no user code (DB connections, route registration, etc.) runs in the
+ * primary process.  In all other cases (single-process or inside a worker)
+ * `setup` is called immediately with a fully configured {@link ServerInstance}.
+ *
+ * Use this instead of {@link createServer} when `workers: true`.  For tests
+ * and single-process usage {@link createServer} remains the right choice.
+ *
+ * @param options - Configuration options for the server.
+ * @param setup   - Callback invoked with the configured {@link ServerInstance}
+ *   in every process except the cluster primary.  Call `server.start()` inside
+ *   the callback to begin accepting connections.
+ *
+ * @example
+ * ```ts
+ * serve({ port: 3000, workers: true }, async (server) => {
+ *     await db.connect();
+ *     server.get('/users', async (req, res) => {
+ *         res.json(await db.query('SELECT * FROM users'));
+ *     });
+ *     await server.start();
+ * });
+ * ```
+ */
+export declare function serve(
+    options: ServerOptions,
+    setup:   (server: ServerInstance) => void | Promise<void>,
+): void;
