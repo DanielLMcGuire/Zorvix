@@ -9,7 +9,7 @@
 
 A typed zero-dependency Node.js http/https server supporting CLI with in-built clustering, caching, and an API that adds REST routing and Express style middleware support.
 
-[Benchmarks](https://github.com/DanielLMcGuire/Zorvix/wiki/Benchmarks)
+[Benchmarks](https://github.com/DanielLMcGuire/Zorvix/wiki/Benchmarks) <sub>against Express and 0http</sub>
 
 ---
 
