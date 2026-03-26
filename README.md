@@ -60,7 +60,7 @@ npx zorvix 8080 --dev --devtools -l
 
 ### `createServer(options)`
 
-Creates and returns a `ServerInstance`. Use this for single-process servers, tests, and any case where you don't need `workers: true`.
+Creates and returns a `ServerInstance`. Use this for single-process servers, tests, and any case where you don't need workers`.
 
 ```ts
 import { createServer } from 'zorvix';
@@ -79,7 +79,7 @@ await server.stop();
 
 ### `serve(options, setup)`
 
-Use `serve` instead of `createServer` when `workers: true`. Any code that must run inside a worker (connections, setup, route registration) belongs inside the callback.
+Use `serve` instead of `createServer` when `workers: true`. Any code that must run inside a worker (connections, setup, route registration, etc) belongs INSIDE the callback.
 
 ```ts
 import { serve } from 'zorvix';
