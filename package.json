@@ -1,6 +1,6 @@
 {
     "name": "zorvix",
-    "version": "1.8.5",
+    "version": "1.8.6",
     "description": "A static http/https file server",
     "license": "MIT",
     "author": "Daniel McGuire",
@@ -76,10 +76,10 @@
         "build:srcdev": "node build.mjs --watch",
         "build:man": "node build-man.mjs",
         "test": "npx tsx --test tests/*.test.mts",
-        "test:range": "node --test tests/range.test.mts",
-        "test:mime": "node --test tests/mime.test.mts",
-        "test:server": "node --test tests/server.test.mts",
-        "start": "node dist/zorvix.min.mjs",
+        "test:range": "npx tsx --test tests/range.test.mts",
+        "test:mime": "npx tsx --test tests/mime.test.mts",
+        "test:server": "npx tsx --test tests/server.test.mts",
+        "start": "npx tsx dist/zorvix.min.mjs",
         "prepublishOnly": "npm run build:prod"
     },
     "devDependencies": {
