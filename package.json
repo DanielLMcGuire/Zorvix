@@ -1,6 +1,6 @@
 {
     "name": "zorvix",
-    "version": "1.8.0",
+    "version": "1.8.2",
     "description": "A static http/https file server",
     "license": "MIT",
     "author": "Daniel McGuire",
@@ -61,6 +61,7 @@
         "#zorvix/static-types": "./src/static/static-types.mts",
 
         "#zorvix/cluster": "./src/process/cluster.mts",
+        "#zorvix/worker-bootstrap": "./src/process/worker-bootstrap.mts",
         "#zorvix/cli": "./src/process/cli.mts",
         
         "#zorvix/internal-types": "./src/internal-types.mts",

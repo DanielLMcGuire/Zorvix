@@ -38,6 +38,10 @@ const config = {
                 in: pkg.imports['#zorvix/api'],
                 out: pkg.exports['.'].import,
             },
+            {
+                in: pkg.imports['#zorvix/worker-bootstrap'],
+                out: './dist/worker-bootstrap.min.mjs',
+            },
         ],
     },
 };
