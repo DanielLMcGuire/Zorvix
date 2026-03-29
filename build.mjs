@@ -2,7 +2,7 @@
 import esbuild from 'esbuild';
 import ts from 'typescript';
 import { generateDtsBundle } from 'dts-bundle-generator';
-import { writeFileSync } from 'fs';
+import { writeFileSync, mkdirSync } from 'fs';
 import config from './build.config.mjs';
 
 const isWatchMode = config.flags.watch;
@@ -101,6 +101,7 @@ async function runBundling() {
 
 async function build() {
     try {
+        mkdirSync('./dist', { recursive: true });
         const tsConfig = loadConfig();
         runTypeCheck(tsConfig);
         emitDeclarations();
