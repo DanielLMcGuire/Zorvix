@@ -16,6 +16,7 @@ A fast zero-dependency Node.js typed http/1.1 server supporting CLI with TLS, in
 
 ```bash
 npx zorvix <port> [options]
+nix run github:DanielLMcGuire/Zorvix -- -- <port> [options]
 ```
  
 | Flag | Description |
