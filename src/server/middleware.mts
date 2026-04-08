@@ -102,7 +102,8 @@ export function createBodyParser(options?: BodyParserOptions): RequestHandler {
         const contentType    = rawContentType.split(';')[0].trim().toLowerCase();
 
         if (contentType !== 'application/json' &&
-            contentType !== 'application/x-www-form-urlencoded') {
+            contentType !== 'application/x-www-form-urlencoded' &&
+            contentType !== 'text/plain') {
             next(); return;
         }
 
@@ -141,8 +142,9 @@ export function createBodyParser(options?: BodyParserOptions): RequestHandler {
             try {
                 if (contentType === 'application/json') {
                     req.body = JSON.parse(raw);
+                } else if (contentType === 'text/plain') {
+                    req.body = raw;
                 } else {
-                    // URLSearchParams handles percent-decoding and `+` → space.
                     req.body = Object.fromEntries(new URLSearchParams(raw));
                 }
             } catch {
