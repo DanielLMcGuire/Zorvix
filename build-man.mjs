@@ -2,6 +2,7 @@
 import { spawnSync } from "node:child_process";
 import process from "node:process";
 
+/** @returns {void} */
 function checkDocker() {
   const result = spawnSync("docker", ["--version"], { stdio: "ignore" });
   if (result.status !== 0) {
@@ -12,16 +13,17 @@ function checkDocker() {
   }
 }
 
+/** @returns {void} */
 function runBuild() {
-  const cwd = process.cwd();
-  const script = `
+  const cwd = /** @type {string} */ (process.cwd());
+  const script = /** @type {string} */ (`
 set -euo pipefail
 find /data -type f -regex '.*\\.[0-9]' | while read -r f; do
     dos2unix "$f"
     echo "man2md: converting file $f to \${f}.md"
     pandoc -f man -t markdown "$f" -o "\${f}.md"
 done
-`;
+`);
   const result = spawnSync(
     "docker",
     [
