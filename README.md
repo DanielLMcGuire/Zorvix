@@ -3,8 +3,8 @@
 [![npm version](https://img.shields.io/npm/v/zorvix.svg)](https://www.npmjs.com/package/zorvix)
 [![Node Version](https://img.shields.io/node/v/zorvix.svg)](https://nodejs.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![NPM Downloads](https://img.shields.io/npm/dw/zorvix)](https://www.npmjs.com/package/zorvix)
-![GitHub Actions Workflow Status](https://img.shields.io/github/check-runs/DanielLMcGuire/Zorvix/master)
+[![NPM Downloads](https://img.shields.io/npm/dw/zorvix.svg)](https://www.npmjs.com/package/zorvix)
+![GitHub Actions Workflow Status](https://img.shields.io/github/check-runs/DanielLMcGuire/Zorvix/master.svg)
 
 A fast zero-dependency Node.js typed http/1.1 server supporting CLI with TLS, in-built clustering, caching, and an API that adds REST routing and Express style middleware support.
 
