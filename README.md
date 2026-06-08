@@ -18,9 +18,9 @@ A fast zero-dependency Node.js typed http/1.1 server supporting CLI with TLS, in
 npx zorvix <port> [options]
 nix run github:DanielLMcGuire/Zorvix -- -- <port> [options]
 ```
- 
+
 | Flag | Description |
-|---|---|
+| --- | --- |
 | `<port>` | Port to listen on (required) |
 | `-r, --root <dir>` | Directory to serve (default: `cwd`) |
 | `-l, --log` | Enable request logging |
@@ -28,7 +28,6 @@ nix run github:DanielLMcGuire/Zorvix -- -- <port> [options]
 | `-dt, --devtools` | Enable Chrome DevTools workspace |
 | `--key / --cert` | PEM key and cert files to enable HTTPS |
 
- 
 ```bash
 npx zorvix 8080                          # Serve current directory
 npx zorvix 3000 --root ./dist -l         # Serve ./dist with logging
@@ -36,7 +35,7 @@ npx zorvix 443 --key ./key.pem --cert ./cert.pem  # HTTPS
 npx zorvix 8080 --dev --devtools -l      # Dev mode + DevTools
 ```
 
-#### [Full `zorvix(1)` documentation](https://github.com/DanielLMcGuire/Zorvix/wiki/zorvix.1)
+### [Full `zorvix(1)` documentation](https://github.com/DanielLMcGuire/Zorvix/wiki/zorvix.1)
 
 ### Examples
 
@@ -60,7 +59,7 @@ npx zorvix 8080 --dev --devtools -l
 
 ### `createServer(options)`
 
-Creates and returns a `ServerInstance`. Use this for single-process servers, tests, and any case where you don't need workers`.
+Creates and returns a `ServerInstance`. Use this for single-process servers, tests, and any case where you don't need workers.
 
 ```ts
 import { createServer } from 'zorvix';
@@ -71,7 +70,7 @@ const server = createServer({
     logging: true,
 });
 
-server.get('/hello', (req, res) => res.end('Hello, world!'));
+server.get('/hello', (req, res) => res.html('<h1>Hello, world!</h1>'));
 
 await server.start();
 await server.stop();
@@ -79,35 +78,37 @@ await server.stop();
 
 ### `serve(options, setup)`
 
-Use `serve` instead of `createServer` when `workers: true`. Any code that must run inside a worker (connections, setup, route registration, etc) belongs INSIDE the callback.
+Use `serve` as the cluster-safe application entrypoint. The behavior of the `setup` argument depends on whether `workers` mode is enabled.
 
-Confused? [See a working example](https://github.com/DanielLMcGuire/Phasor/blob/master/src/Extensions/web/phasorweb.mts)
+**Cluster Mode (`workers: true`)**  
+`setup` must be a **string** representing the absolute path to a module. The primary process forks a supervised worker that dynamically imports this module.
+
+```ts
+import { serve } from 'zorvix';
+import { fileURLToPath } from 'url';
+
+serve(
+    { port: 3000, workers: true, logging: true },
+    fileURLToPath(new URL('./app.js', import.meta.url))
+);
+
+export default async function(server) {
+    await db.connect();
+    server.get('/users/:id', async (req, res) => {
+        res.json(await db.findUser(req.params.id));
+    });
+    await server.start();
+}
+```
+
+**Single-Process Mode (`workers: false`)**  
+`setup` must be a **callback function**.
 
 ```ts
 import { serve } from 'zorvix';
 
-// All dependencies must be initialized inside (use import(), not import!), not in the outer scope!
-serve({
-    port: 3000,
-    root: './public',
-    logging: true,
-    workers: true,
-    key: './server.key',
-    cert: './server.crt',
-}, async (server) => {
-    // Only runs in worker processes
-    await db.connect();
-
-    server.use('/api', authMiddleware);
-
-    server.get('/users/:id', async (req, res) => {
-        res.json(await db.findUser(req.params.id));
-    });
-
-    server.post('/users', async (req, res) => {
-        res.json(await db.createUser(req.body), 201);
-    });
-
+serve({ port: 3000 }, async (server) => {
+    server.get('/healthz', (req, res) => res.json({ ok: true }));
     await server.start();
 });
 ```
@@ -120,7 +121,7 @@ Both `createServer` and `serve` return/provide a `ServerInstance` with the same 
 server.use((req, res, next) => { next(); });
 server.use('/api', authMiddleware);
 
-server.get('/users/:id',    (req, res) => res.end(req.params.id));
+server.get('/users/:id',    (req, res) => res.json({ id: req.params.id }));
 server.post('/users',       handler);
 server.put('/users/:id',    handler);
 server.patch('/users/:id',  handler);
@@ -130,6 +131,26 @@ server.options('/users',    handler);
 
 await server.start();
 await server.stop();
+```
+
+### Body Parsing
+
+Zorvix provides an opt-in `createBodyParser` middleware to populate `req.body`.
+
+```ts
+import { createServer, createBodyParser } from 'zorvix';
+
+const server = createServer({ port: 3000 });
+
+server.use(createBodyParser());
+
+server.post('/users', async (req, res) => {
+    // req.body is available after using the middleware
+    const user = await db.createUser(req.body);
+    res.json(user, 201);
+});
+
+await server.start();
 ```
 
 #### [Full `zorvix(3)` documentation](https://github.com/DanielLMcGuire/Zorvix/wiki/zorvix.3)
