@@ -1,13 +1,15 @@
-.TH ZORVIX 3 "2025" "zorvix 1.5.0" "Node.js Library Functions"
+.TH ZORVIX 3 "2025" "zorvix 2.0.0" "Node.js Library Functions"
 Node.js API for embedding a static HTTP/HTTPS server with REST routing
 .nf
-.B import { createServer, serve } from 'zorvix';
+.B import { createServer, serve, createBodyParser } from 'zorvix';
 .PP
 .BI "const server = createServer(" options ");"
 .PP
-.BI "serve(" options ", async (server) => {"
+.BI "serve(" options ", async (server) => {    // single-process"
 .BI "    await server.start();"
 .BI "});"
+.PP
+.BI "serve(" options ", " modulePath ");       // cluster mode (workers: true)"
 .PP
 .BI "server.use(" handler ");"
 .BI "server.use(" path ", " handler ");"
@@ -26,7 +28,7 @@ Node.js API for embedding a static HTTP/HTTPS server with REST routing
 .SH DESCRIPTION
 The
 .B zorvix
-package exports two factory functions.
+package exports two factory functions and a body-parsing middleware factory.
 .BR createServer ()
 creates and returns a
 .B ServerInstance
@@ -75,41 +77,72 @@ and the calling process is the cluster primary,
 returns a lightweight primary-only instance whose route-registration
 methods are accepted but silently discarded (the primary never dispatches
 requests).
-The worker process re-executes the same entry-point, calls
+The worker process is bootstrapped from the library's internal
+.B worker-bootstrap
+module, which dynamically imports the setup module path supplied to
+.BR serve ()
+and calls
 .BR createServer ()
-again, and this time receives a full server instance.
+with the stored options to obtain a full server instance.
 .SH serve(options, setup)
 .TP
 .B Signature
 .nf
-serve(options: ServerOptions, setup: (server: ServerInstance) => void | Promise<void>): void
+serve(options: ServerOptions, setup: string): void
+serve(options: ServerOptions, setup: (server: ServerInstance) => void | Promise<void>): void | Promise<void>
 .fi
 .PP
 Cluster-safe application entrypoint.
+The behaviour of
+.I setup
+differs depending on
+.B options.workers
+and the calling process role.
+.PP
 When
 .B options.workers
 is
 .B true
 and the calling process is the cluster primary,
-.BR serve ()
-forks and supervises a worker without invoking
-.IR setup .
-In all other cases (single-process mode, or when called from inside a
-worker) the
 .I setup
-callback is invoked immediately with a fully configured
+must be a resolved absolute module path (a
+.BR string ).
+.BR serve ()
+validates that the path exists on disk, stores it in the environment, and forks
+a supervised worker that dynamically imports the setup module.
+The primary never invokes the setup module directly.
+Use
+.B fileURLToPath(new URL('./app.js', import.meta.url))
+to obtain a portable absolute path.
+Passing a function as
+.I setup
+when
+.B workers
+is
+.B true
+throws
+.BR TypeError .
+.PP
+In single-process mode
+.RB ( workers: false ,
+the default) or when called from inside a worker,
+.I setup
+must be a function.
+.BR serve ()
+calls it immediately with a fully configured
 .BR ServerInstance .
 Call
 .BR server.start ()
 inside the callback to begin accepting connections.
-.PP
-If the
-.I setup
-callback throws or returns a rejected Promise,
+If the callback throws or returns a rejected Promise,
 .BR serve ()
 logs the error and calls
 .B process.exit(1)
 to prevent a silent failure.
+Passing a non-function as
+.I setup
+in this configuration throws
+.BR TypeError .
 .SH ServerOptions
 .TP
 .B port \fI(number, required)\fR
@@ -166,6 +199,18 @@ over
 to guarantee that the code is only executed in the worker.
 Default:
 .BR false .
+.TP
+.B cache \fI(boolean, optional)\fR
+Enable the in-memory file cache.
+When
+.BR false ,
+every static-file request is served directly from disk; no cache entries are
+created and no pruning interval is started.
+Useful during development or when
+.B devTools
+is enabled and files change frequently.
+Default:
+.BR true .
 .TP
 .B key \fI(string\~|\~Buffer, optional)\fR
 PEM-encoded TLS private key, supplied either as a filesystem path (string)
@@ -272,7 +317,11 @@ compilation.
 .fi
 .PP
 Binds the server to the configured port and begins accepting connections.
-Also starts the in-memory cache pruning interval.
+Also starts the in-memory cache pruning interval when
+.B cache
+is not
+.B false
+(the default).
 .PP
 Returns a
 .B Promise
@@ -344,7 +393,7 @@ Handler functions receive the standard Node.js
 .B IncomingMessage
 and
 .B ServerResponse
-objects, augmented with the following field:
+objects, augmented with the following fields:
 .TP
 .B req.params \fI(Record<string, string>)\fR
 Named URL parameters extracted from the matched route pattern.
@@ -357,6 +406,42 @@ Parsed request body.
 .B undefined
 until a body-parsing middleware populates it.
 Type-narrowing is the caller's responsibility.
+.TP
+.B req.query \fI(Record<string, string | string[]>)\fR
+Parsed query-string parameters from the request URL.
+Multi-value keys (e.g.\&
+.BR ?tag=a&tag=b )
+are collected into an array; single-value keys produce a plain string.
+Always present \(em populated before the first middleware runs.
+An empty object
+.B {}
+when the request has no query string.
+.TP
+.B res.json(data, status?)
+Serialise
+.I data
+as JSON and send a complete response.
+Sets
+.B Content-Type: application/json
+and
+.B Content-Length
+automatically.
+.I status
+defaults to
+.BR 200 .
+.TP
+.B res.html(markup, status?)
+Send
+.I markup
+as an HTML response.
+Sets
+.B Content-Type: text/html; charset=utf-8
+and
+.B Content-Length
+automatically.
+.I status
+defaults to
+.BR 200 .
 .SH HANDLER EXECUTION ORDER
 Handlers are executed strictly in registration order:
 .PP
@@ -440,6 +525,29 @@ Rejects URLs longer than 2048\~bytes with
 and requests with more than 50 headers with
 .BR "431 Request Header Fields Too Large" .
 .SH ERRORS
+.TP
+.B "TypeError: [zorvix] serve(): When workers is true, `setup` must be a module path string."
+.BR serve ()
+was called with
+.B workers: true
+from the cluster primary but
+.I setup
+was a function instead of a module path string.
+Move the setup callback into a separate file with a default export and pass its
+resolved absolute path instead.
+.TP
+.B "TypeError: [zorvix] serve(): When workers is false (or not set), `setup` must be a function."
+.BR serve ()
+was called in single-process mode (or from inside a worker) but
+.I setup
+was not a function.
+.TP
+.B "Error: [zorvix] serve(): Setup module not found at path: ..."
+The resolved path passed as
+.I setup
+to
+.BR serve ()
+does not exist on disk.
 .TP
 .B TypeError: use(path, handler): handler is required
 .BR server.use ()
@@ -537,12 +645,8 @@ await server.start();
 .fi
 .SS Cluster mode
 .nf
-import { serve } from 'zorvix';
-
-// The setup callback is never invoked in the primary process.
-// DB connections, route registration, and server.start() all run
-// exclusively inside the worker.
-serve({ port: 3000, workers: true }, async (server) => {
+// app.js \(em setup module; default export receives the ServerInstance
+export default async function(server) {
     await db.connect();
 
     server.get('/users/:id', async (req, res) => {
@@ -550,7 +654,89 @@ serve({ port: 3000, workers: true }, async (server) => {
     });
 
     await server.start();
+}
+
+// entry.js \(em cluster entrypoint
+import { serve } from 'zorvix';
+import { fileURLToPath } from 'url';
+
+// When workers: true the primary forks a worker that imports app.js.
+// The setup module is never executed in the primary process.
+serve(
+    { port: 3000, workers: true },
+    fileURLToPath(new URL('./app.js', import.meta.url)),
+);
+.fi
+.SS Single-process serve()
+.nf
+import { serve } from 'zorvix';
+
+serve({ port: 3000 }, async (server) => {
+    server.get('/healthz', (req, res) => res.json({ ok: true }));
+    await server.start();
 });
+.fi
+.SS Query-string parameters
+.nf
+import { createServer } from 'zorvix';
+
+const server = createServer({ port: 3000 });
+
+// GET /search?q=hello&tag=a&tag=b
+// req.query \(-> { q: 'hello', tag: ['a', 'b'] }
+server.get('/search', (req, res) => {
+    const { q, tag } = req.query;
+    res.json({ q, tag });
+});
+
+await server.start();
+.fi
+.SS Response helpers (res.json and res.html)
+.nf
+import { createServer } from 'zorvix';
+
+const server = createServer({ port: 3000 });
+
+server.get('/data', (req, res) => {
+    res.json({ hello: 'world' });
+});
+
+server.get('/page', (req, res) => {
+    res.html('<h1>Hello</h1>');
+});
+
+server.get('/not-found', (req, res) => {
+    res.json({ error: 'Not found' }, 404);
+});
+
+await server.start();
+.fi
+.SS Body parsing with createBodyParser
+.nf
+import { createServer, createBodyParser } from 'zorvix';
+
+const server = createServer({ port: 3000 });
+
+server.use(createBodyParser());
+
+server.post('/users', (req, res) => {
+    const { name } = req.body;
+    res.json({ created: name }, 201);
+});
+
+await server.start();
+.fi
+.SS Disabling the in-memory cache (development mode)
+.nf
+import { createServer } from 'zorvix';
+
+const server = createServer({
+    port:     3000,
+    devTools: true,
+    cache:    false,   // serve every file fresh from disk
+});
+
+await server.start();
 .fi
 .SS Graceful shutdown on SIGTERM
 .nf

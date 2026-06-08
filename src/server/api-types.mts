@@ -164,22 +164,47 @@ export interface ServerInstance {
  * and single-process usage {@link createServer} remains the right choice.
  *
  * @param options - Configuration options for the server.
- * @param setup   - Callback invoked with the configured {@link ServerInstance}
- *   in every process except the cluster primary.  Call `server.start()` inside
+ * @param setup   - When `workers` is `false` (the default): a callback invoked
+ *   with the configured {@link ServerInstance}.  Call `server.start()` inside
  *   the callback to begin accepting connections.
  *
- * @example
+ *   When `workers` is `true`: a **resolved absolute module path** whose default
+ *   export is a `(server: ServerInstance) => void | Promise<void>` function.
+ *   The module is dynamically imported by the worker — no `eval`, no function
+ *   serialisation.  Use
+ *   `fileURLToPath(new URL('./your-app.js', import.meta.url))` to obtain a
+ *   portable absolute path at the call site.
+ *
+ * @example Single-process (workers: false, the default)
  * ```ts
- * serve({ port: 3000, workers: true }, async (server) => {
+ * serve({ port: 3000 }, async (server) => {
+ *     server.get('/hello', (req, res) => res.end('Hello!'));
+ *     await server.start();
+ * });
+ * ```
+ *
+ * @example Cluster mode (workers: true)
+ * ```ts
+ * // app.ts — the setup module
+ * export default async function(server: ServerInstance) {
  *     await db.connect();
  *     server.get('/users', async (req, res) => {
  *         res.json(await db.query('SELECT * FROM users'));
  *     });
  *     await server.start();
- * });
+ * }
+ *
+ * // entry.ts — the entry point
+ * import { serve } from 'zorvix';
+ * import { fileURLToPath } from 'url';
+ *
+ * serve(
+ *     { port: 3000, workers: true },
+ *     fileURLToPath(new URL('./app.js', import.meta.url)),
+ * );
  * ```
  */
 export declare function serve(
     options: ServerOptions,
-    setup:   (server: ServerInstance) => void | Promise<void>,
+    setup:   string | ((server: ServerInstance) => void | Promise<void>),
 ): void | Promise<void>;

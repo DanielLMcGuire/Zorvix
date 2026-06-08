@@ -1,6 +1,6 @@
 {
     "name": "zorvix",
-    "version": "1.8.15",
+    "version": "2.0.0",
     "description": "A static http/https file server",
     "license": "MIT",
     "author": "Daniel McGuire",
@@ -80,10 +80,10 @@
         "prepublishOnly": "npm run build:prod"
     },
     "devDependencies": {
-        "@types/node": "^25.9.1",
+        "@types/node": "^22.19.20",
         "dts-bundle-generator": "^9.5.1",
         "esbuild": "^0.25.12",
-        "tsx": "^4.22.3",
+        "tsx": "^4.22.4",
         "typescript": "^5.9.3"
     }
 }

@@ -2,6 +2,7 @@ import http                               from 'node:http';
 import https                              from 'https';
 import crypto                             from 'crypto';
 import path                               from 'path';
+import fs                                 from 'node:fs';
 import cluster                            from 'cluster';
 import { fileURLToPath }                  from 'url';
 import { IncomingMessage, ServerResponse } from 'node:http';
@@ -28,36 +29,92 @@ export { createBodyParser } from '#zorvix/middleware';
  * Use this instead of {@link createServer} when `workers: true`.  For tests
  * and single-process usage {@link createServer} remains the right choice.
  *
- * @example
+ * @param options - Configuration options for the server.
+ * @param setup   - When `workers` is `false` (the default): a callback invoked
+ *   with the configured {@link ServerInstance}.  Call `server.start()` inside
+ *   the callback to begin accepting connections.
+ *
+ *   When `workers` is `true`: a **resolved absolute module path** whose default
+ *   export is a `(server: ServerInstance) => void | Promise<void>` function.
+ *   The module is dynamically imported by the worker process — no `eval`, no
+ *   function serialisation.  Use
+ *   `fileURLToPath(new URL('./your-app.js', import.meta.url))` to obtain a
+ *   portable absolute path at the call site.
+ *
+ * @example Single-process (workers: false, default)
  * ```ts
- * serve({ port: 3000, workers: true }, async (server) => {
+ * serve({ port: 3000 }, async (server) => {
+ *     server.get('/hello', (req, res) => res.end('Hello!'));
+ *     await server.start();
+ * });
+ * ```
+ *
+ * @example Cluster mode (workers: true)
+ * ```ts
+ * // app.ts — the setup module (default export)
+ * export default async function(server: ServerInstance) {
  *     await db.connect();
  *     server.get('/users', async (req, res) => {
  *         res.json(await db.query('SELECT * FROM users'));
  *     });
  *     await server.start();
- * });
+ * }
+ *
+ * // entry.ts — the entry point
+ * import { serve } from 'zorvix';
+ * import { fileURLToPath } from 'url';
+ *
+ * serve(
+ *     { port: 3000, workers: true },
+ *     fileURLToPath(new URL('./app.js', import.meta.url)),
+ * );
  * ```
  */
 export function serve(
     options: ServerOptions,
-    setup:   (server: ServerInstance) => void | Promise<void>,
+    setup:   string | ((server: ServerInstance) => void | Promise<void>),
 ): void | Promise<void> {
     const { workers = false } = options;
 
     if (workers && cluster.isPrimary) {
+        if (typeof setup !== 'string') {
+            throw new TypeError(
+                '[zorvix] serve(): When workers is true, `setup` must be a module path string.\n' +
+                'Move your setup callback into a separate file with a default export, then pass\n' +
+                'its path: serve(options, fileURLToPath(new URL("./app.js", import.meta.url)))',
+            );
+        }
+
+        // Resolve to an absolute path and verify the file exists before storing
+        // anything in the environment — never store executable code in env vars.
+        const resolvedPath = path.resolve(setup);
+        if (!fs.existsSync(resolvedPath)) {
+            throw new Error(
+                `[zorvix] serve(): Setup module not found at path: "${resolvedPath}"`,
+            );
+        }
+
         const root = options.root ? path.resolve(options.root) : process.cwd();
         const workerBootstrap = fileURLToPath(
             new URL('./worker-bootstrap.min.mjs', import.meta.url),
         );
         cluster.setupPrimary({ exec: workerBootstrap });
 
-        process.env.ZORVIX_OPTIONS = JSON.stringify({ ...options, workers: false });
-        process.env.ZORVIX_SETUP   = setup.toString();
+        // Store a plain filesystem path — not serialised code — in the environment.
+        process.env.ZORVIX_OPTIONS      = JSON.stringify({ ...options, workers: false });
+        process.env.ZORVIX_SETUP_MODULE = resolvedPath;
 
         createPrimaryInstance(options.port, root).start().catch(console.error);
-        
-        return; 
+
+        return;
+    }
+
+    // Single-process mode or inside a worker: setup must be a callback function.
+    if (typeof setup !== 'function') {
+        throw new TypeError(
+            '[zorvix] serve(): When workers is false (or not set), ' +
+            '`setup` must be a function.',
+        );
     }
 
     const server = createServer(options);
