@@ -82,7 +82,7 @@
     "devDependencies": {
         "@types/node": "^22.19.20",
         "dts-bundle-generator": "^9.5.1",
-        "esbuild": "^0.25.12",
+        "esbuild": "^0.28.1",
         "tsx": "^4.22.4",
         "typescript": "^5.9.3"
     }
