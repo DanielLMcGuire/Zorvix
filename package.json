@@ -1,9 +1,13 @@
 {
     "name": "zorvix",
-    "version": "2.0.1",
+    "version": "2.0.2",
     "description": "A static http/https file server",
     "license": "MIT",
-    "author": "Daniel McGuire",
+    "author": {
+        "name": "Daniel McGuire",
+        "email": "danielmcguire23@icloud.com",
+        "url": "https://danielm.pages.dev"
+    },
     "type": "module",
     "homepage": "https://zorvix.pages.dev",
     "bugs": {
@@ -80,9 +84,9 @@
         "prepublishOnly": "npm run build:prod"
     },
     "devDependencies": {
-        "@types/node": "^22.19.20",
+        "@types/node": "^22.19.21",
         "dts-bundle-generator": "^9.5.1",
-        "esbuild": "^0.25.12",
+        "esbuild": "^0.28.1",
         "tsx": "^4.22.4",
         "typescript": "^5.9.3"
     }
