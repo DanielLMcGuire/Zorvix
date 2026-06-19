@@ -5,10 +5,8 @@
  * so forked workers run this instead of the caller's entry point.  It reads a
  * validated module path from ZORVIX_SETUP_MODULE and dynamically imports it,
  * calling the default-exported setup function with a fresh ServerInstance.
- *
- * No eval() is used.  The module path is a plain resolved filesystem path that
- * was validated by serve() in the primary before being written to the environment.
  */
+import { pathToFileURL } from 'url';
 import { createServer } from '#zorvix/api';
 import type { ServerOptions, ServerInstance } from '#zorvix/api-types';
 
@@ -20,12 +18,9 @@ if (!modulePath) {
     process.exit(1);
 }
 
-// Dynamically import the user's plugin module — no eval, no arbitrary code
-// execution from env.  The path was already resolved and validated (existsSync)
-// by serve() in the primary process before being stored in the environment.
 let pluginModule: { default?: (server: ServerInstance) => void | Promise<void> };
 try {
-    pluginModule = await import(modulePath) as typeof pluginModule;
+    pluginModule = await import(pathToFileURL(modulePath).href) as typeof pluginModule;
 } catch (err) {
     console.error(`[zorvix] Failed to import setup module "${modulePath}":`, err);
     process.exit(1);

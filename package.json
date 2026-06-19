@@ -1,6 +1,6 @@
 {
     "name": "zorvix",
-    "version": "2.0.2",
+    "version": "2.0.3",
     "description": "A static http/https file server",
     "license": "MIT",
     "author": {
@@ -15,7 +15,7 @@
     },
     "repository": {
         "type": "git",
-        "url": "git+https://codeberg.org/DanielLMcGuire/Zorvix.git"
+        "url": "https://codeberg.org/DanielLMcGuire/Zorvix.git"
     },
     "bin": {
         "zorvix": "dist/zorvix.min.mjs"
@@ -67,7 +67,8 @@
         "#zorvix/cli": "./src/process/cli.mts",
         "#zorvix/internal-types": "./src/internal-types.mts",
         "#zorvix/mimetypes": "./resources/server-mimetypes.json",
-        "#zorvix/pkg": "./package.json"
+        "#zorvix/pkg": "./package.json",
+        "#zorvix/cli-setup": "./src/process/cli-setup.mts"
     },
     "scripts": {
         "build": "npm run build:src && npm run build:man",

@@ -1,4 +1,5 @@
 import { serve } from '#zorvix/api';
+import { fileURLToPath } from 'url';
 import pkg from '#zorvix/pkg' with { type: 'json' };
 const { version } = pkg;
 
@@ -70,7 +71,7 @@ if (tlsCertIdx !== -1 && !tlsCert) {
     printHelp(1);
 }
 
-serve({
+const options = {
     port:     port!,
     root:     hostRootArg,
     logging,
@@ -79,6 +80,15 @@ serve({
     cache:    !(isDev || devTools),
     key:      tlsKey,
     cert:     tlsCert,
-}, async (server) => {
-    await server.start();
-});
+};
+
+if (isDev) {
+    serve(options, async (server) => {
+        await server.start();
+    });
+} else {
+    serve(
+        options,
+        fileURLToPath(new URL("./cli-setup.min.mjs", import.meta.url)),
+    );
+}

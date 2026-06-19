@@ -15,17 +15,13 @@
       {
         packages.default = pkgs.buildNpmPackage {
           pname = "zorvix";
-          version = "1.8.15";
+          version = "2.0.3";
 
           src = ./.;
 
-          npmDepsHash = "sha256-NCo+xZL5Y1idDfdYDfVtvjGA69BcFkef+CXPvQA63qg=";
-        
-
-          buildPhase = ''
-            npm install
-            npm run build:src
-          '';
+          npmDepsFetcherVersion = 2;
+          npmDepsHash = "sha256-PMyRQMhKUNIxgiqGZpHCHu1N3nYfPdKH7E6FrY4noRs=";
+          npmBuildScript = "build:src";
 
           installPhase = ''
             mkdir -p $out/bin
